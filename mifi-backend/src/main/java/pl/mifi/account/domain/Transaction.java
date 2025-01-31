@@ -1,15 +1,13 @@
-package pl.mifi.transactions.domain;
+package pl.mifi.account.domain;
 
 import java.util.Date;
 
-import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
+import pl.mifi.domain.seed_work.BaseEntity;
 
 @Entity
-public class Transaction {
+public class Transaction extends BaseEntity {
 
-    @EmbeddedId
-    private TransactionId id;
     private Money amount;
     private Type type;
     private Category category;
@@ -18,8 +16,7 @@ public class Transaction {
     private Date date;
     private String description;
 
-    public Transaction(TransactionId id, Money amount, Type type, Category category, Account account, Date date, String description) {
-        this.id = id;
+    public Transaction(Money amount, Type type, Category category, Account account, Date date, String description) {
         this.amount = amount;
         this.type = type;
         this.category = category;

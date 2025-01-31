@@ -1,4 +1,4 @@
-package pl.mifi.transactions.domain;
+package pl.mifi.account.domain;
 
 public interface TransactionRepository {
 
