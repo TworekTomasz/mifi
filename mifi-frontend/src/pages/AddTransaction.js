@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Define the validation schema
 const transactionSchema = z.object({
@@ -16,6 +17,42 @@ const transactionSchema = z.object({
 });
 
 export const AddTransaction = () => {
+    const queryClient = useQueryClient();
+    
+    const createTransaction = async (data) => {
+        const response = await fetch('http://localhost:8080/transactions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                amount: data.amount,
+                type: data.type,
+                category: data.category,
+                accountId: data.accountId,
+                date: new Date(data.date).toISOString(),
+                description: data.description || null
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to create transaction');
+        }
+
+        return response.json();
+    };
+
+    const mutation = useMutation({
+        mutationFn: createTransaction,
+        onSuccess: () => {
+            // Invalidate and refetch transactions query
+            queryClient.invalidateQueries({ queryKey: ['transactions'] });
+            // Reset form
+            form.reset();
+            // Optional: Add success notification
+        },
+    });
+
     const form = useForm({
         resolver: zodResolver(transactionSchema),
         defaultValues: {
@@ -29,7 +66,7 @@ export const AddTransaction = () => {
     });
     
     const onSubmit = (data) => {
-        console.log(data);
+        mutation.mutate(data);
     };
 
     const inputClassName = "w-full px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent";
@@ -148,10 +185,17 @@ export const AddTransaction = () => {
 
                 <button 
                     type="submit"
-                    className="w-full bg-indigo-600 text-white py-1.5 px-4 rounded-md hover:bg-indigo-700 transition-colors mt-2"
+                    disabled={mutation.isPending}
+                    className="w-full bg-indigo-600 text-white py-1.5 px-4 rounded-md hover:bg-indigo-700 transition-colors mt-2 disabled:bg-indigo-400 disabled:cursor-not-allowed"
                 >
-                    Add Transaction
+                    {mutation.isPending ? 'Adding Transaction...' : 'Add Transaction'}
                 </button>
+
+                {mutation.isError && (
+                    <p className="text-red-600 text-sm">
+                        Error: {mutation.error.message}
+                    </p>
+                )}
             </form>
         </div>
     );
