@@ -1,27 +1,55 @@
 package pl.mifi.account.domain;
 
-import java.util.Date;
-
 import jakarta.persistence.Entity;
 import pl.mifi.domain.seed_work.BaseEntity;
+
+import java.math.BigDecimal;
+import java.util.Date;
 
 @Entity
 public class Transaction extends BaseEntity {
 
-    private Money amount;
-    private Type type;
-    private Category category;
-    private Account account;
+    public Transaction() {
+    }
+
+    private BigDecimal amount;
+    private String type;
+    private String category;
+    private String account;
     //TODO: Check what is the best option here for date candidate
     private Date date;
     private String description;
 
-    public Transaction(Money amount, Type type, Category category, Account account, Date date, String description) {
+    public Transaction(BigDecimal amount, String type, String category, String account, Date date, String description) {
         this.amount = amount;
         this.type = type;
         this.category = category;
         this.account = account;
         this.date = date;
         this.description = description;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public String getAccount() {
+        return account;
+    }
+
+    public Date getDate() {
+        return date;
+    }
+
+    public String getDescription() {
+        return description;
     }
 }

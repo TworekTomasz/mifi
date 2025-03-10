@@ -1,9 +1,13 @@
 package pl.mifi.cqrs.impl;
 
+import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import pl.mifi.cqrs.*;
+
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 
 @Component
 public class MediatorImpl implements Mediator {
@@ -20,7 +24,20 @@ public class MediatorImpl implements Mediator {
     public <R, C extends Command> R send(C command) {
         CommandHandler<C, R> handler = (CommandHandler<C, R>) applicationContext.getBeansOfType(CommandHandler.class)
                 .values().stream()
-                .filter(h -> h.getClass().getGenericInterfaces()[0].getTypeName().contains(command.getClass().getSimpleName()))
+                .filter(h -> {
+                    Class<?> targetClass = AopProxyUtils.ultimateTargetClass(h);
+                    Type[] genericInterfaces = targetClass.getGenericInterfaces();
+                    for (Type genericInterface : genericInterfaces) {
+                        if (genericInterface instanceof ParameterizedType) {
+                            ParameterizedType parameterizedType = (ParameterizedType) genericInterface;
+                            Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+                            if (actualTypeArguments.length > 0 && actualTypeArguments[0].equals(command.getClass())) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                })
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No handler found for command: " + command.getClass().getSimpleName()));
 
@@ -29,10 +46,23 @@ public class MediatorImpl implements Mediator {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <R, Q extends Query<R>> R send(Q query) {
+    public <R, Q extends Query> R get(Q query) {
         QueryHandler<Q, R> handler = (QueryHandler<Q, R>) applicationContext.getBeansOfType(QueryHandler.class)
                 .values().stream()
-                .filter(h -> h.getClass().getGenericInterfaces()[0].getTypeName().contains(query.getClass().getSimpleName()))
+                .filter(h -> {
+                    Class<?> targetClass = AopProxyUtils.ultimateTargetClass(h);
+                    Type[] genericInterfaces = targetClass.getGenericInterfaces();
+                    for (Type genericInterface : genericInterfaces) {
+                        if (genericInterface instanceof ParameterizedType) {
+                            ParameterizedType parameterizedType = (ParameterizedType) genericInterface;
+                            Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+                            if (actualTypeArguments.length > 0 && actualTypeArguments[0].equals(query.getClass())) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                })
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No handler found for query: " + query.getClass().getSimpleName()));
 

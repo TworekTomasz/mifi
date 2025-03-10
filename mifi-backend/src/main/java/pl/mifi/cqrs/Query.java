@@ -1,4 +1,4 @@
 package pl.mifi.cqrs;
 
-public interface Query<R> {
+public interface Query {
 }
