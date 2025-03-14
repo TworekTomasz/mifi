@@ -4,16 +4,30 @@ export const Home = () => {
     const { data: transactions, isLoading, error } = useQuery({
         queryKey: ['transactions'],
         queryFn: async () => {
-            const response = await fetch('http://localhost:8080/transactions');
-            if (!response.ok) {
-                throw new Error('Failed to fetch transactions');
+            try {
+                const response = await fetch('http://192.168.1.6:8080/transactions');
+                if (!response.ok) {
+                    console.error('API Error:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        url: response.url
+                    });
+                    throw new Error(`Failed to fetch transactions: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            } catch (err) {
+                if (err instanceof TypeError && err.message === 'Failed to fetch') {
+                    console.error('Connection Error: Server might be down or unreachable');
+                } else {
+                    console.error('Unexpected Error:', err);
+                }
+                throw err;
             }
-            return response.json();
         }
     });
 
     if (isLoading) return <div>Loading...</div>;
-    if (error) return <div>Error: {error.message}</div>;
+    if (error) return <div>Error: {error}</div>;
 
     return (
         <div className="max-w-6xl mx-auto p-4">
