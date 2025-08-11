@@ -196,18 +196,18 @@ export const Home = () => {
                             <p className="text-gray-500">No transactions were recorded for this month.</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
+            <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                    </tr>
-                                </thead>
+                        </tr>
+                    </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {transactions.map((transaction) => (
+                        {transactions.map((transaction) => (
                                         <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {new Date(transaction.date).toLocaleDateString('en-US', {
@@ -215,30 +215,30 @@ export const Home = () => {
                                                     day: 'numeric',
                                                     year: 'numeric'
                                                 })}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">{transaction.title}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
                                                     transaction.type === 'income' 
-                                                        ? 'bg-green-100 text-green-800' 
-                                                        : 'bg-red-100 text-red-800'
-                                                }`}>
+                                            ? 'bg-green-100 text-green-800' 
+                                            : 'bg-red-100 text-red-800'
+                                    }`}>
                                                     {transaction.type === 'income' ? 'Income' : 'Expense'}
-                                                </span>
-                                            </td>
+                                    </span>
+                                </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                                 <span className={`text-sm font-semibold ${
                                                     transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                                                 }`}>
                                                     {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
                         </div>
                     )}
                 </div>
