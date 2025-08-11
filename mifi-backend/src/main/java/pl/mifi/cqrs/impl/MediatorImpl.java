@@ -12,6 +12,8 @@ import java.lang.reflect.Type;
 @Component
 public class MediatorImpl implements Mediator {
 
+    //TODO: Find all handlers when application starts https://chatgpt.com/c/67ea4519-4664-8000-b364-067efade2007
+
     private final ApplicationContext applicationContext;
 
     @Autowired
