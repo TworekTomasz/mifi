@@ -30,7 +30,8 @@ public class CreateTransactionCommandHandler implements CommandHandler<CreateTra
                 command.category(),
                 command.accountId(),
                 command.date(),
-                command.description()
+                command.description(),
+                command.title()
         );
         transactionRepository.save(transaction);
         System.out.println("Creating transaction for: " + command.description());

@@ -12,6 +12,7 @@ public class Transaction extends BaseEntity {
     public Transaction() {
     }
 
+    private String title;
     private BigDecimal amount;
     private String type;
     private String category;
@@ -20,13 +21,15 @@ public class Transaction extends BaseEntity {
     private Date date;
     private String description;
 
-    public Transaction(BigDecimal amount, String type, String category, String account, Date date, String description) {
+    public Transaction(BigDecimal amount, String type, String category, String account, Date date, String description,
+                       String title) {
         this.amount = amount;
         this.type = type;
         this.category = category;
         this.account = account;
         this.date = date;
         this.description = description;
+        this.title = title;
     }
 
     public BigDecimal getAmount() {
@@ -51,5 +54,9 @@ public class Transaction extends BaseEntity {
 
     public String getDescription() {
         return description;
+    }
+
+    public String getTitle() {
+        return title;
     }
 }

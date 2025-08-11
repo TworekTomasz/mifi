@@ -7,6 +7,6 @@ import java.math.BigDecimal;
 import java.util.Date;
 
 public record CreateTransactionCommand(BigDecimal amount, String type, String category, String accountId, Date date,
-                                       String description) implements Command {
+                                       String description, String title) implements Command {
 }
 
