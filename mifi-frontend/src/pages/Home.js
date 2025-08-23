@@ -1,73 +1,114 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon } from '@heroicons/react/24/outline';
-
-// Mock data generator
-const generateMockData = () => {
-    const data = {};
-    const categories = {
-        expense: ['Food & Dining', 'Transportation', 'Shopping', 'Bills & Utilities', 'Health', 'Entertainment', 'Travel'],
-        income: ['Salary', 'Freelance', 'Investment', 'Business', 'Gift', 'Other Income']
-    };
-    
-    // Generate data for the last 6 months
-    for (let monthOffset = 0; monthOffset < 6; monthOffset++) {
-        const date = new Date();
-        date.setMonth(date.getMonth() - monthOffset);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        
-        data[monthKey] = [];
-        
-        // Generate 15-25 transactions per month
-        const transactionCount = Math.floor(Math.random() * 11) + 15;
-        
-        for (let i = 0; i < transactionCount; i++) {
-            const isIncome = Math.random() > 0.7; // 30% chance of income
-            const type = isIncome ? 'income' : 'expense';
-            const category = categories[type][Math.floor(Math.random() * categories[type].length)];
-            
-            // Generate random day in the month
-            const transactionDate = new Date(date.getFullYear(), date.getMonth(), Math.floor(Math.random() * 28) + 1);
-            
-            data[monthKey].push({
-                id: `${monthKey}-${i}`,
-                date: transactionDate.toISOString().split('T')[0],
-                title: category,
-                type: type,
-                amount: isIncome 
-                    ? Math.floor(Math.random() * 5000) + 500  // Income: 500-5500
-                    : Math.floor(Math.random() * 300) + 10    // Expense: 10-310
-            });
-        }
-        
-        // Sort by date (newest first)
-        data[monthKey].sort((a, b) => new Date(b.date) - new Date(a.date));
-    }
-    
-    return data;
-};
+import { useQuery } from '@tanstack/react-query';
+import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import { Link } from 'react-router-dom';
 
 export const Home = () => {
+    const [viewMode, setViewMode] = useState('year'); // 'year' or 'month'
+    const [selectedYear, setSelectedYear] = useState(() => {
+        const now = new Date();
+        return now.getFullYear();
+    });
     const [selectedMonth, setSelectedMonth] = useState(() => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
     
-    const mockData = useMemo(() => generateMockData(), []);
-    const transactions = mockData[selectedMonth] || [];
-    
-    // Calculate summary statistics
-    const summary = useMemo(() => {
-        const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-        const expenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    // Fetch transactions from backend
+    const { data: allTransactions, isLoading, error } = useQuery({
+        queryKey: ['transactions'],
+        queryFn: async () => {
+            try {
+                const response = await fetch('http://localhost:8080/transactions');
+                if (!response.ok) {
+                    console.error('API Error:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        url: response.url
+                    });
+                    throw new Error(`Failed to fetch transactions: ${response.status} ${response.statusText}`);
+                }
+                const data = await response.json();
+                
+                // Log the response to understand the structure
+                console.log('Backend response:', data);
+                console.log('Number of transactions:', data.length);
+                if (data.length > 0) {
+                    console.log('Sample transaction structure:', data[0]);
+                }
+                
+                return data;
+            } catch (err) {
+                console.error('Error fetching transactions:', err);
+                throw err;
+            }
+        }
+    });
+
+    // Process transactions based on view mode
+    const { transactions, summary } = useMemo(() => {
+        if (!allTransactions) return { transactions: [], summary: { income: 0, expenses: 0, balance: 0, transactionCount: 0 } };
+        
+        let filteredTransactions = [];
+        
+        if (viewMode === 'year') {
+            // Filter transactions by selected year
+            filteredTransactions = allTransactions.filter(transaction => {
+                const transactionDate = new Date(transaction.date || transaction.createdAt || transaction.timestamp);
+                return transactionDate.getFullYear() === selectedYear;
+            });
+        } else {
+            // Filter transactions by selected month
+            filteredTransactions = allTransactions.filter(transaction => {
+                const transactionDate = new Date(transaction.date || transaction.createdAt || transaction.timestamp);
+                const monthKey = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
+                return monthKey === selectedMonth;
+            });
+        }
+        
+        // Transform and sort transactions
+        const transformedTransactions = filteredTransactions
+            .map(transaction => {
+                // Use title field and clean it up
+                let cleanTitle = transaction.title || transaction.description || transaction.name || 'Unknown Transaction';
+                
+                // Remove the part after "DATA TRANSAKCJI:" if it exists
+                const dataTransakcjiIndex = cleanTitle.indexOf('DATA TRANSAKCJI:');
+                if (dataTransakcjiIndex !== -1) {
+                    cleanTitle = cleanTitle.substring(0, dataTransakcjiIndex).trim();
+                }
+                
+                return {
+                    id: transaction.id,
+                    date: transaction.date || transaction.createdAt || transaction.timestamp,
+                    title: cleanTitle,
+                    type: transaction.type?.toLowerCase() === 'income' ? 'income' : 'expense',
+                    amount: Math.abs(transaction.amount || 0),
+                    bank: transaction.bank || 'Unknown'
+                };
+            })
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        // Calculate summary
+        const income = transformedTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const expenses = transformedTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        
         return {
-            income,
-            expenses,
-            balance: income - expenses,
-            transactionCount: transactions.length
+            transactions: transformedTransactions,
+            summary: {
+                income,
+                expenses,
+                balance: income - expenses,
+                transactionCount: transformedTransactions.length
+            }
         };
-    }, [transactions]);
+    }, [allTransactions, viewMode, selectedYear, selectedMonth]);
     
-    // Month navigation
+    // Navigation functions
+    const navigateYear = (direction) => {
+        setSelectedYear(prev => prev + direction);
+    };
+    
     const navigateMonth = (direction) => {
         const [year, month] = selectedMonth.split('-').map(Number);
         const date = new Date(year, month - 1);
@@ -76,18 +117,71 @@ export const Home = () => {
         setSelectedMonth(newMonth);
     };
     
+    const navigate = (direction) => {
+        if (viewMode === 'year') {
+            navigateYear(direction);
+        } else {
+            navigateMonth(direction);
+        }
+    };
+    
     const formatMonthDisplay = (monthKey) => {
         const [year, month] = monthKey.split('-').map(Number);
         const date = new Date(year, month - 1);
         return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     };
     
+    const formatCurrentPeriod = () => {
+        if (viewMode === 'year') {
+            return selectedYear.toString();
+        } else {
+            return formatMonthDisplay(selectedMonth);
+        }
+    };
+    
     const formatCurrency = (amount) => {
-        return new Intl.NumberFormat('en-US', {
+        return new Intl.NumberFormat('pl-PL', {
             style: 'currency',
-            currency: 'USD'
+            currency: 'PLN'
         }).format(amount);
     };
+
+    // Loading state
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                    <h3 className="text-lg font-medium text-gray-900">Loading transactions...</h3>
+                    <p className="text-gray-500">Fetching data from backend</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center max-w-md mx-auto">
+                    <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center mb-4">
+                        <span className="text-red-600 text-2xl">⚠️</span>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Failed to load transactions</h3>
+                    <p className="text-gray-500 mb-4">{error.message}</p>
+                    <p className="text-sm text-gray-400">
+                        Make sure your backend is running on http://localhost:8080
+                    </p>
+                    <button 
+                        onClick={() => window.location.reload()} 
+                        className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -95,34 +189,61 @@ export const Home = () => {
                 {/* Header */}
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">Financial Overview</h1>
-                    <p className="text-gray-600">Track your income and expenses month by month</p>
+                    <p className="text-gray-600">Track your income and expenses by year or month</p>
                 </div>
 
-                {/* Month Selector */}
+                {/* Period Selector */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                             <CalendarIcon className="h-6 w-6 text-gray-500" />
                             <h2 className="text-xl font-semibold text-gray-900">
-                                {formatMonthDisplay(selectedMonth)}
+                                {formatCurrentPeriod()}
                             </h2>
                         </div>
                         
-                        <div className="flex items-center space-x-2">
-                            <button
-                                onClick={() => navigateMonth(-1)}
-                                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                                aria-label="Previous month"
-                            >
-                                <ChevronLeftIcon className="h-5 w-5 text-gray-600" />
-                            </button>
-                            <button
-                                onClick={() => navigateMonth(1)}
-                                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                                aria-label="Next month"
-                            >
-                                <ChevronRightIcon className="h-5 w-5 text-gray-600" />
-                            </button>
+                        <div className="flex items-center space-x-4">
+                            {/* View Mode Toggle */}
+                            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                                <button
+                                    onClick={() => setViewMode('year')}
+                                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                        viewMode === 'year'
+                                            ? 'bg-white text-gray-900 shadow-sm'
+                                            : 'text-gray-600 hover:text-gray-900'
+                                    }`}
+                                >
+                                    Year
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('month')}
+                                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                        viewMode === 'month'
+                                            ? 'bg-white text-gray-900 shadow-sm'
+                                            : 'text-gray-600 hover:text-gray-900'
+                                    }`}
+                                >
+                                    Month
+                                </button>
+                            </div>
+                            
+                            {/* Navigation */}
+                            <div className="flex items-center space-x-2">
+                                <button
+                                    onClick={() => navigate(-1)}
+                                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                                    aria-label={viewMode === 'year' ? 'Previous year' : 'Previous month'}
+                                >
+                                    <ChevronLeftIcon className="h-5 w-5 text-gray-600" />
+                                </button>
+                                <button
+                                    onClick={() => navigate(1)}
+                                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                                    aria-label={viewMode === 'year' ? 'Next year' : 'Next month'}
+                                >
+                                    <ChevronRightIcon className="h-5 w-5 text-gray-600" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -180,67 +301,100 @@ export const Home = () => {
                     </div>
                 </div>
 
-                {/* Transactions Table */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                        <h3 className="text-lg font-medium text-gray-900">Transactions</h3>
-                        <p className="text-sm text-gray-500 mt-1">{transactions.length} transactions this month</p>
+                {/* Recent Transactions */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-gray-900">Recent Transactions</h3>
+                        <Link
+                            to="/transactions"
+                            className="text-indigo-600 hover:text-indigo-700 text-sm font-medium flex items-center"
+                        >
+                            View all
+                            <ArrowRightIcon className="h-4 w-4 ml-1" />
+                        </Link>
                     </div>
                     
                     {transactions.length === 0 ? (
-                        <div className="p-12 text-center">
-                            <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                                <CalendarIcon className="h-8 w-8 text-gray-400" />
-                            </div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">No transactions found</h3>
-                            <p className="text-gray-500">No transactions were recorded for this month.</p>
+                        <div className="text-center py-8">
+                            <CalendarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                            <p className="text-gray-500">No transactions found for this period.</p>
                         </div>
                     ) : (
-            <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                        </tr>
-                    </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                        {transactions.map((transaction) => (
-                                        <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full">
+                                <thead>
+                                    <tr className="border-b border-gray-200">
+                                        <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                        <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Bank</th>
+                                        <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th className="text-right py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {transactions.slice(0, 10).map((transaction) => (
+                                        <tr key={transaction.id} className="hover:bg-gray-50">
+                                            <td className="py-3 text-sm text-gray-900">
                                                 {new Date(transaction.date).toLocaleDateString('en-US', {
                                                     month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric'
+                                                    day: 'numeric'
                                                 })}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-900">{transaction.title}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                                            </td>
+                                            <td className="py-3 text-sm text-gray-900 truncate max-w-xs">
+                                                {transaction.title}
+                                            </td>
+                                            <td className="py-3 text-sm">
+                                                <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                                    {transaction.bank}
+                                                </span>
+                                            </td>
+                                            <td className="py-3 text-sm">
+                                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                                                     transaction.type === 'income' 
-                                            ? 'bg-green-100 text-green-800' 
-                                            : 'bg-red-100 text-red-800'
-                                    }`}>
+                                                        ? 'bg-green-100 text-green-800' 
+                                                        : 'bg-red-100 text-red-800'
+                                                }`}>
                                                     {transaction.type === 'income' ? 'Income' : 'Expense'}
-                                    </span>
-                                </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                <span className={`text-sm font-semibold ${
+                                                </span>
+                                            </td>
+                                            <td className="py-3 text-sm text-right">
+                                                <span className={`font-semibold ${
                                                     transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                                                 }`}>
                                                     {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
-                                    </span>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     )}
+                </div>
+
+                {/* Quick Actions */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <Link
+                            to="/add"
+                            className="flex items-center justify-center px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                            Add Transaction
+                        </Link>
+                        <Link
+                            to="/transactions"
+                            className="flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            View Transactions
+                        </Link>
+                        <Link
+                            to="/analytics"
+                            className="flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            View Analytics
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>

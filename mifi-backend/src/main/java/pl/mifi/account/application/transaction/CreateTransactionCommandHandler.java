@@ -22,6 +22,11 @@ public class CreateTransactionCommandHandler implements CommandHandler<CreateTra
     public void init() {
         System.out.println("CreateTransactionCommandHandler initialized");
     }
+
+    public TransactionRepository getTransactionRepository() {
+        return transactionRepository;
+    }
+
     @Override
     public CreateTransactionResponse handle(CreateTransactionCommand command) {
         Transaction transaction = new Transaction(
@@ -31,7 +36,8 @@ public class CreateTransactionCommandHandler implements CommandHandler<CreateTra
                 command.accountId(),
                 command.date(),
                 command.description(),
-                command.title()
+                command.title(),
+                command.bank()
         );
         transactionRepository.save(transaction);
         System.out.println("Creating transaction for: " + command.description());
