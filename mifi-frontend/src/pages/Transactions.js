@@ -371,7 +371,7 @@ export const Transactions = () => {
                 </div>
 
                 {/* Transactions Table */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden w-full">
                     <div className="px-6 py-4 border-b border-gray-200">
                         <h3 className="text-lg font-medium text-gray-900">Transactions</h3>
                         <p className="text-sm text-gray-500 mt-1">
@@ -395,7 +395,7 @@ export const Transactions = () => {
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
+                            <table className="w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
                                         <th 
@@ -405,7 +405,7 @@ export const Transactions = () => {
                                             Date {sortBy === 'date' && (sortOrder === 'desc' ? '↓' : '↑')}
                                         </th>
                                         <th 
-                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-1/3"
                                             onClick={() => handleSort('title')}
                                         >
                                             Description {sortBy === 'title' && (sortOrder === 'desc' ? '↓' : '↑')}
@@ -431,16 +431,18 @@ export const Transactions = () => {
                                                     year: 'numeric'
                                                 })}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-900">{transaction.title}</div>
+                                            <td className="px-6 py-4">
+                                                <div className="text-sm font-medium text-gray-900 truncate max-w-xs" title={transaction.title}>
+                                                    {transaction.title}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                                                <span className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full truncate max-w-24" title={transaction.category}>
                                                     {transaction.category}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                                <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full truncate max-w-20" title={transaction.bank}>
                                                     {transaction.bank}
                                                 </span>
                                             </td>

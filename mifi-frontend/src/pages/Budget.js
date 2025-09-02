@@ -50,10 +50,9 @@ export const Budget = () => {
         { name: 'CAFE', description: 'Kawiarnie' },
         { name: 'DESSERTS', description: 'Słodycze, desery' },
         { name: 'ENTERTAINMENT', description: 'Rozrywka, kino' },
-        { name: 'SUBSCRIPTION', description: 'Subskrypcje cyfrowe' },
+        { name: 'GIFTS', description: 'Prezenty' },
         { name: 'HOME_GOODS', description: 'Rzeczy do domu' },
         { name: 'BEAUTY_PERSONAL_CARE', description: 'Kosmetyki, higiena' },
-        { name: 'FLOWERS_GIFTS', description: 'Kwiaty, prezenty' },
         { name: 'GOVERNMENT_FEES', description: 'Opłaty urzędowe' },
         { name: 'FITNESS_WELLNESS', description: 'Siłownia, wellness' },
         { name: 'ONLINE_SERVICES', description: 'Usługi online' },
@@ -106,54 +105,82 @@ export const Budget = () => {
         defaultAmount: 0
     });
     
-    // Ładowanie danych z localStorage
+    // Stany dla zapisywania
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveMessage, setSaveMessage] = useState('');
+    
+    // Ładowanie danych z localStorage per miesiąc
     useEffect(() => {
-        const savedMonthlyIncomes = localStorage.getItem('mifi-monthly-incomes');
-        const savedMonthlyTransfers = localStorage.getItem('mifi-monthly-transfers');
-        const savedCustomTransferItems = localStorage.getItem('mifi-custom-transfer-items');
-        const savedSubBudgets = localStorage.getItem('mifi-sub-budgets');
-        const savedMonthlyBudgetCategories = localStorage.getItem('mifi-monthly-budget-categories');
-        
-        if (savedMonthlyIncomes) {
-            setMonthlyIncomes(JSON.parse(savedMonthlyIncomes));
-        }
-        
-        if (savedMonthlyTransfers) {
-            setMonthlyTransfers(JSON.parse(savedMonthlyTransfers));
-        } else {
-            // Inicjalizuj z domyślnymi wartościami
-            const defaultTransfers = {};
-            DEFAULT_TRANSFER_ITEMS.forEach(item => {
-                if (item.type === 'expense') {
-                    defaultTransfers[item.name] = item.defaultAmount;
+        const loadMonthlyData = () => {
+            // Pobierz dane miesięczne
+            const monthlyBudgets = JSON.parse(localStorage.getItem('mifi-monthly-budgets') || '{}');
+            const monthData = monthlyBudgets[selectedMonth];
+            
+            if (monthData && monthData.data) {
+                // Załaduj dane dla wybranego miesiąca
+                setMonthlyIncomes(monthData.data.monthlyIncomes || { myIncome: 0, spouseIncome: 0 });
+                setMonthlyTransfers(monthData.data.monthlyTransfers || {});
+                setMonthlyBudgetCategories(monthData.data.monthlyBudgetCategories || {});
+                setCustomTransferItems(monthData.data.customTransferItems || []);
+                setSubBudgets(monthData.data.subBudgets || {});
+            } else {
+                // Załaduj dane domyślne lub z starych kluczy localStorage (backward compatibility)
+                const savedMonthlyIncomes = localStorage.getItem('mifi-monthly-incomes');
+                const savedMonthlyTransfers = localStorage.getItem('mifi-monthly-transfers');
+                const savedCustomTransferItems = localStorage.getItem('mifi-custom-transfer-items');
+                const savedSubBudgets = localStorage.getItem('mifi-sub-budgets');
+                const savedMonthlyBudgetCategories = localStorage.getItem('mifi-monthly-budget-categories');
+                
+                if (savedMonthlyIncomes) {
+                    setMonthlyIncomes(JSON.parse(savedMonthlyIncomes));
+                } else {
+                    setMonthlyIncomes({ myIncome: 0, spouseIncome: 0 });
                 }
-            });
-            setMonthlyTransfers(defaultTransfers);
-        }
+                
+                if (savedMonthlyTransfers) {
+                    setMonthlyTransfers(JSON.parse(savedMonthlyTransfers));
+                } else {
+                    // Inicjalizuj z domyślnymi wartościami
+                    const defaultTransfers = {};
+                    DEFAULT_TRANSFER_ITEMS.forEach(item => {
+                        if (item.type === 'expense') {
+                            defaultTransfers[item.name] = item.defaultAmount;
+                        }
+                    });
+                    setMonthlyTransfers(defaultTransfers);
+                }
+                
+                if (savedCustomTransferItems) {
+                    setCustomTransferItems(JSON.parse(savedCustomTransferItems));
+                } else {
+                    setCustomTransferItems([]);
+                }
+                
+                if (savedSubBudgets) {
+                    setSubBudgets(JSON.parse(savedSubBudgets));
+                } else {
+                    setSubBudgets({});
+                }
+                
+                if (savedMonthlyBudgetCategories) {
+                    setMonthlyBudgetCategories(JSON.parse(savedMonthlyBudgetCategories));
+                } else {
+                    // Inicjalizuj z domyślnymi kategoriami
+                    const defaultCategories = {};
+                    DEFAULT_BUDGET_CATEGORIES.forEach(category => {
+                        defaultCategories[category.name] = {
+                            amount: 0,
+                            source: 'Życie', // Domyślnie wszystkie z Życie
+                            description: category.description
+                        };
+                    });
+                    setMonthlyBudgetCategories(defaultCategories);
+                }
+            }
+        };
         
-        if (savedCustomTransferItems) {
-            setCustomTransferItems(JSON.parse(savedCustomTransferItems));
-        }
-        
-        if (savedSubBudgets) {
-            setSubBudgets(JSON.parse(savedSubBudgets));
-        }
-        
-        if (savedMonthlyBudgetCategories) {
-            setMonthlyBudgetCategories(JSON.parse(savedMonthlyBudgetCategories));
-        } else {
-            // Inicjalizuj z domyślnymi kategoriami
-            const defaultCategories = {};
-            DEFAULT_BUDGET_CATEGORIES.forEach(category => {
-                defaultCategories[category.name] = {
-                    amount: 0,
-                    source: 'Życie', // Domyślnie wszystkie z Życie
-                    description: category.description
-                };
-            });
-            setMonthlyBudgetCategories(defaultCategories);
-        }
-    }, []);
+        loadMonthlyData();
+    }, [selectedMonth]); // Przeładuj dane gdy zmieni się miesiąc
     
     // Zapisywanie do localStorage
     const saveMonthlyBudgetCategories = (newCategories) => {
@@ -179,6 +206,51 @@ export const Budget = () => {
     const saveSubBudgets = (newSubBudgets) => {
         setSubBudgets(newSubBudgets);
         localStorage.setItem('mifi-sub-budgets', JSON.stringify(newSubBudgets));
+    };
+    
+    // Funkcja zapisywania budżetu na dany miesiąc
+    const handleSave = async () => {
+        setIsSaving(true);
+        setSaveMessage('');
+        
+        try {
+            // Przygotuj dane do zapisania
+            const budgetData = {
+                month: selectedMonth,
+                timestamp: new Date().toISOString(),
+                data: {
+                    monthlyIncomes,
+                    monthlyTransfers,
+                    monthlyBudgetCategories,
+                    customTransferItems,
+                    subBudgets
+                }
+            };
+            
+            // Pobierz istniejące dane miesięczne
+            const existingData = JSON.parse(localStorage.getItem('mifi-monthly-budgets') || '{}');
+            
+            // Zapisz dane dla wybranego miesiąca
+            existingData[selectedMonth] = budgetData;
+            
+            // Zapisz z powrotem do localStorage
+            localStorage.setItem('mifi-monthly-budgets', JSON.stringify(existingData));
+            
+            // Symuluj opóźnienie (dla efektu loading)
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            setSaveMessage('Budget saved successfully!');
+            
+            // Ukryj wiadomość po 3 sekundach
+            setTimeout(() => setSaveMessage(''), 3000);
+            
+        } catch (error) {
+            console.error('Error saving budget:', error);
+            setSaveMessage('Error saving budget');
+            setTimeout(() => setSaveMessage(''), 3000);
+        } finally {
+            setIsSaving(false);
+        }
     };
     
 
@@ -258,8 +330,8 @@ export const Budget = () => {
         return acc;
     }, {});
     
-    // Dodaj "Pozostało" jako kategorię do budżetowania
-    budgetableAmounts['Pozostało'] = remainingAfterTransfers;
+    // Dodaj "Pozostałe" jako kategorię do budżetowania
+    budgetableAmounts['Pozostałe'] = remainingAfterTransfers;
     
     // Oblicz łączną kwotę dostępną do budżetowania
     const totalBudgetableAmount = Object.values(budgetableAmounts).reduce((sum, amount) => sum + amount, 0);
@@ -299,8 +371,44 @@ export const Budget = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Budżetowanie</h1>
-                    <p className="text-gray-600">Zarządzaj swoim budżetem miesięcznym i planowaniem przelewów</p>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900 mb-2">Budżetowanie</h1>
+                            <p className="text-gray-600">Zarządzaj swoim budżetem miesięcznym i planowaniem przelewów</p>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                            {saveMessage && (
+                                <span className={`text-sm px-3 py-1 rounded-full ${
+                                    saveMessage.includes('Error') 
+                                        ? 'bg-red-100 text-red-800' 
+                                        : 'bg-green-100 text-green-800'
+                                }`}>
+                                    {saveMessage}
+                                </span>
+                            )}
+                            <button
+                                onClick={handleSave}
+                                disabled={isSaving}
+                                className={`inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
+                                    isSaving
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                }`}
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                        Saving...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CurrencyDollarIcon className="h-5 w-5 mr-2" />
+                                        Save Budget
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Selektor miesiąca */}
