@@ -1,11 +1,13 @@
 package pl.mifi.buget.domain;
 
 import jakarta.persistence.*;
+import lombok.Builder;
 import pl.mifi.domain.seed_work.BaseEntity;
 
 import java.math.BigDecimal;
 
 @Entity
+@Builder
 public class Envelope extends BaseEntity {
 
     @Column(name = "limit_amount")
@@ -21,13 +23,6 @@ public class Envelope extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id")
     private Category category;
-
-    public Envelope(BigDecimal limit, BigDecimal spent, Budget budget, Category category) {
-        this.limit = limit;
-        this.spent = spent;
-        this.budget = budget;
-        this.category = category;
-    }
 
     public Budget getBudget() {
         return budget;

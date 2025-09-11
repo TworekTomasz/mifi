@@ -9,9 +9,9 @@ public abstract class BaseAggregateRoot {
 
     @Id
     @GeneratedValue
-    private Long aggregateId;
+    private Long id;
 
-    public Long getAggregateId() {
-        return aggregateId;
+    public Long getId() {
+        return id;
     }
 }
