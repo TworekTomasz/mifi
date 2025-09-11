@@ -7,7 +7,7 @@ import pl.mifi.cqrs.Command;
 import pl.mifi.cqrs.CommandHandler;
 
 @Component
-public class CreateCategoryCommandHandler implements CommandHandler<CreateCategoryCommandHandler.CreateCategoryCommand, Boolean> {
+public class CreateCategoryCommandHandler implements CommandHandler<CreateCategoryCommandHandler.CreateCategoryCommand> {
 
     private final CategoryRepository categoryRepository;
 
@@ -16,10 +16,9 @@ public class CreateCategoryCommandHandler implements CommandHandler<CreateCatego
     }
 
     @Override
-    public Boolean handle(CreateCategoryCommand command) {
+    public void handle(CreateCategoryCommand command) {
         Category category = new Category(command.name());
         categoryRepository.save(category);
-        return true;
     }
 
     public record CreateCategoryCommand(String name) implements Command {

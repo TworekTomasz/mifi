@@ -10,7 +10,7 @@ import pl.mifi.cqrs.CommandHandler;
 
 @Component
 @Transactional
-public class CreateTransactionCommandHandler implements CommandHandler<CreateTransactionCommand, CreateTransactionResponse> {
+public class CreateTransactionCommandHandler implements CommandHandler<CreateTransactionCommand> {
 
     private final TransactionRepository transactionRepository;
 
@@ -28,7 +28,7 @@ public class CreateTransactionCommandHandler implements CommandHandler<CreateTra
     }
 
     @Override
-    public CreateTransactionResponse handle(CreateTransactionCommand command) {
+    public void handle(CreateTransactionCommand command) {
         Transaction transaction = new Transaction(
                 command.amount(),
                 command.type(),
@@ -41,6 +41,5 @@ public class CreateTransactionCommandHandler implements CommandHandler<CreateTra
         );
         transactionRepository.save(transaction);
         System.out.println("Creating transaction for: " + command.description());
-        return new CreateTransactionResponse("1");
     }
 }

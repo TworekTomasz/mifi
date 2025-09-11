@@ -1,7 +1,6 @@
 package pl.mifi.buget.domain;
 
 import jakarta.persistence.CascadeType;
-import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.OneToMany;
 import pl.mifi.domain.seed_work.BaseAggregateRoot;
