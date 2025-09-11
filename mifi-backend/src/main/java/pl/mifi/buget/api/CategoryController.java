@@ -18,7 +18,7 @@ public class CategoryController {
 
     @PostMapping
     public ResponseEntity<Boolean> createCategory(@RequestBody CreateCategoryCommandHandler.CreateCategoryCommand command) {
-        Boolean result = mediator.send(command);
-        return ResponseEntity.ok(result);
+        mediator.send(command);
+        return ResponseEntity.ok(true);
     }
 }

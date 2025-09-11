@@ -23,8 +23,8 @@ public class MediatorImpl implements Mediator {
 
     @Override
     @SuppressWarnings("unchecked")
-    public <R, C extends Command> R send(C command) {
-        CommandHandler<C, R> handler = (CommandHandler<C, R>) applicationContext.getBeansOfType(CommandHandler.class)
+    public <C extends Command> void send(C command) {
+        CommandHandler<C> handler = (CommandHandler<C>) applicationContext.getBeansOfType(CommandHandler.class)
                 .values().stream()
                 .filter(h -> {
                     Class<?> targetClass = AopProxyUtils.ultimateTargetClass(h);
@@ -43,7 +43,7 @@ public class MediatorImpl implements Mediator {
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("No handler found for command: " + command.getClass().getSimpleName()));
 
-        return handler.handle(command);
+        handler.handle(command);
     }
 
     @Override

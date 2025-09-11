@@ -29,9 +29,7 @@ public class TransactionController {
 
     @PostMapping
     public ResponseEntity<CreateTransactionResponse> createTransaction(@RequestBody CreateTransactionCommand createTransactionCommand) {
-        CreateTransactionResponse response = mediator.send(createTransactionCommand);
-        return ResponseEntity
-                .created(URI.create("/transactions/" + response.id()))
-                .body(response);
+        mediator.send(createTransactionCommand);
+        return ResponseEntity.created(URI.create("/transactions")).build();
     }
 }
