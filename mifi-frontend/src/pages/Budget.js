@@ -23,7 +23,6 @@ export const Budget = () => {
         // Przychody
         { name: 'Przychód - pensja', type: 'income', defaultAmount: 7000, description: 'Pensja podstawowa', bank: 'PKO SA' },
         { name: 'Hipoteka (opłaty)', type: 'expense', defaultAmount: 2800, description: 'Rata kredytu hipotecznego', bank: 'PKO SA', isBudgetable: false },
-        { name: 'Ubezp. Mieszkanie', type: 'expense', defaultAmount: 0, description: 'Ubezpieczenie mieszkania', bank: 'PKO BP', isBudgetable: false },
         { name: 'Opłaty', type: 'expense', defaultAmount: 1400, description: 'Media, czynsz, internet', bank: 'Santander', isBudgetable: false },
         { name: 'Oszczędzanie', type: 'expense', defaultAmount: 1000, description: 'Wpłacone na dobry zysk', bank: 'PKO SA', isBudgetable: false },
         { name: 'Wydatki nieregularne', type: 'expense', defaultAmount: 1500, description: 'Nieprzewidziane wydatki', bank: 'PKO SA', isBudgetable: true },
@@ -214,8 +213,8 @@ export const Budget = () => {
         setSaveMessage('');
         
         try {
-            // Przygotuj dane do zapisania
-            const budgetData = {
+            // Przygotuj dane do zapisania lokalnie
+            const localBudgetData = {
                 month: selectedMonth,
                 timestamp: new Date().toISOString(),
                 data: {
@@ -227,30 +226,123 @@ export const Budget = () => {
                 }
             };
             
-            // Pobierz istniejące dane miesięczne
+            // Przygotuj dane dla backend API zgodnie z CreateBudgetCommand
+            const backendBudgetData = prepareBudgetForBackend();
+            
+            // Zapisz do backend
+            const response = await fetch('http://localhost:8080/budget', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(backendBudgetData)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Backend error: ${response.status} ${response.statusText}`);
+            }
+            
+            // Jeśli backend zapisał pomyślnie, zapisz też lokalnie
             const existingData = JSON.parse(localStorage.getItem('mifi-monthly-budgets') || '{}');
-            
-            // Zapisz dane dla wybranego miesiąca
-            existingData[selectedMonth] = budgetData;
-            
-            // Zapisz z powrotem do localStorage
+            existingData[selectedMonth] = localBudgetData;
             localStorage.setItem('mifi-monthly-budgets', JSON.stringify(existingData));
             
-            // Symuluj opóźnienie (dla efektu loading)
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            setSaveMessage('Budget saved successfully!');
+            setSaveMessage('Budget saved successfully to backend and locally!');
             
             // Ukryj wiadomość po 3 sekundach
             setTimeout(() => setSaveMessage(''), 3000);
             
         } catch (error) {
             console.error('Error saving budget:', error);
-            setSaveMessage('Error saving budget');
+            setSaveMessage(`Error saving budget: ${error.message}`);
             setTimeout(() => setSaveMessage(''), 3000);
         } finally {
             setIsSaving(false);
         }
+    };
+    
+    // Funkcja przygotowująca dane dla backend API
+    const prepareBudgetForBackend = () => {
+        const [year, month] = selectedMonth.split('-');
+        const budgetTitle = `${formatMonthDisplay(selectedMonth)} Budget`;
+        
+        // Przygotuj incomes - konwertuj z monthlyIncomes
+        const incomes = [];
+        if (monthlyIncomes.myIncome > 0) {
+            incomes.push({
+                amount: monthlyIncomes.myIncome,
+                source: "Salary Tomek"
+            });
+        }
+        if (monthlyIncomes.spouseIncome > 0) {
+            incomes.push({
+                amount: monthlyIncomes.spouseIncome,
+                source: "Salary Ania"
+            });
+        }
+        
+        // Przygotuj fixed expenses - konwertuj z monthlyTransfers (nie-budgetowalne)
+        const fixedExpenses = [];
+        allTransferItems.forEach(item => {
+            if (!item.isBudgetable && monthlyTransfers[item.name] > 0) {
+                fixedExpenses.push({
+                    amount: monthlyTransfers[item.name],
+                    description: item.description || item.name,
+                    dueDate: `${year}-${month}-05` // Domyślnie 5 dzień miesiąca
+                });
+            }
+        });
+        
+        // Przygotuj envelopes - konwertuj z monthlyBudgetCategories
+        const envelopes = new Set();
+        Object.entries(monthlyBudgetCategories).forEach(([categoryName, categoryData]) => {
+            if (categoryData.amount > 0) {
+                // Mapuj nazwy kategorii na categoryId - potrzebujesz mapowania w backend
+                const categoryId = getCategoryIdFromName(categoryName);
+                if (categoryId) {
+                    envelopes.add({
+                        categoryId: categoryId,
+                        limit: categoryData.amount
+                    });
+                }
+            }
+        });
+        
+        return {
+            title: budgetTitle,
+            type: "MONTHLY",
+            incomes: incomes,
+            fixedExpenses: fixedExpenses,
+            envelopes: Array.from(envelopes)
+        };
+    };
+    
+    // Funkcja mapująca nazwy kategorii na ID - potrzebujesz endpoint w backend
+    const getCategoryIdFromName = (categoryName) => {
+        // To będzie potrzebowało endpoint do pobierania kategorii z backend
+        // Na razie używamy prostego mapowania
+        const categoryMapping = {
+            'GROCERIES': '1',
+            'ZABKA': '2',
+            'PHARMACY': '3',
+            'FUEL': '4',
+            'PARKING_TOLLS': '5',
+            'TRANSPORT_RIDEHAIL': '6',
+            'FAST_FOOD': '7',
+            'RESTAURANT': '8',
+            'CAFE': '9',
+            'DESSERTS': '10',
+            'ENTERTAINMENT': '11',
+            'GIFTS': '12',
+            'HOME_GOODS': '13',
+            'BEAUTY_PERSONAL_CARE': '14',
+            'GOVERNMENT_FEES': '15',
+            'FITNESS_WELLNESS': '16',
+            'ONLINE_SERVICES': '17',
+            'TRANSFER': '18'
+        };
+        
+        return categoryMapping[categoryName] || null;
     };
     
 
