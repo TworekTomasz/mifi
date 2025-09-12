@@ -1,4 +1,19 @@
---INSERT INTO category(id, name) VALUES
---(1, 'Electronics'),
---(2, 'Books'),
---(3, 'Clothing');
+INSERT INTO category (id, name, description) VALUES
+(1, 'GROCERIES', 'Zakupy spożywcze'),
+(2, 'ZABKA', 'Convenience store'),
+(3, 'PHARMACY', 'Apteka, leki'),
+(4, 'FUEL', 'Paliwo'),
+(5, 'PARKING_TOLLS', 'Parkowanie, opłaty drogowe'),
+(6, 'TRANSPORT_RIDEHAIL', 'Uber, Bolt, taxi'),
+(7, 'FAST_FOOD', 'Fast food, quick meals'),
+(8, 'RESTAURANT', 'Restauracje'),
+(9, 'CAFE', 'Kawiarnie'),
+(10, 'DESSERTS', 'Słodycze, desery'),
+(11, 'ENTERTAINMENT', 'Rozrywka, kino'),
+(12, 'GIFTS', 'Prezenty'),
+(13, 'HOME_GOODS', 'Rzeczy do domu'),
+(14, 'BEAUTY_PERSONAL_CARE', 'Kosmetyki, higiena'),
+(15, 'GOVERNMENT_FEES', 'Opłaty urzędowe'),
+(16, 'FITNESS_WELLNESS', 'Siłownia, wellness'),
+(17, 'ONLINE_SERVICES', 'Usługi online'),
+(18, 'TRANSFER', 'Przelewy, transfery');

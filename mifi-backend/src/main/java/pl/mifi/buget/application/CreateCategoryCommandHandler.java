@@ -1,5 +1,6 @@
 package pl.mifi.buget.application;
 
+import lombok.Getter;
 import org.springframework.stereotype.Component;
 import pl.mifi.buget.domain.Category;
 import pl.mifi.buget.infrastructure.CategoryRepository;
@@ -17,10 +18,10 @@ public class CreateCategoryCommandHandler implements CommandHandler<CreateCatego
 
     @Override
     public void handle(CreateCategoryCommand command) {
-        Category category = new Category(command.name());
+        Category category = new Category(command.name(), command.description());
         categoryRepository.save(category);
     }
 
-    public record CreateCategoryCommand(String name) implements Command {
+    public record CreateCategoryCommand(String name, String description) implements Command {
     }
 }
