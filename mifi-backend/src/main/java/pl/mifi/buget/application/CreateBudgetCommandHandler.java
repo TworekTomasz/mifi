@@ -1,6 +1,7 @@
 package pl.mifi.buget.application;
 
 import org.springframework.stereotype.Component;
+import pl.mifi.buget.application.services.BudgetUniquenessService;
 import pl.mifi.buget.domain.*;
 import pl.mifi.buget.infrastructure.BudgetRepository;
 import pl.mifi.buget.infrastructure.CategoryRepository;
@@ -8,6 +9,8 @@ import pl.mifi.cqrs.Command;
 import pl.mifi.cqrs.CommandHandler;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -18,37 +21,53 @@ public class CreateBudgetCommandHandler implements CommandHandler<CreateBudgetCo
 
     private final CategoryRepository categoryRepository;
 
-    public CreateBudgetCommandHandler(BudgetRepository budgetRepository, CategoryRepository categoryRepository) {
+    private final BudgetUniquenessService uniquenessService;
+
+    public CreateBudgetCommandHandler(BudgetRepository budgetRepository, CategoryRepository categoryRepository, BudgetUniquenessService uniquenessService) {
         this.budgetRepository = budgetRepository;
         this.categoryRepository = categoryRepository;
+        this.uniquenessService = uniquenessService;
     }
 
     @Override
     public void handle(CreateBudgetCommand command) {
 
-        Budget budget = Budget.builder()
-                .title(command.title())
-                .type(command.type())
-                .incomes(command.incomes())
-                .fixedExpenses(command.fixedExpenses())
-                .build();
-
-        for (CreateEnvelopeRequest request : command.envelopes()) {
-            Category category = categoryRepository.findById(request.categoryId()).orElseThrow(
-                    () -> new IllegalArgumentException("Category with id " + request.categoryId() + " does not exist")
-            );
-            budget.addEnvelope(category,request.limit());
+        List<Envelope> envelopes = new ArrayList<>();
+        for (CreateEnvelopeRequest req : command.envelopes()) {
+            Category category = categoryRepository.findById(req.categoryId())
+                    .orElseThrow(() -> new IllegalArgumentException("Category not found: " + req.categoryId()));
+            envelopes.add(Envelope.builder().limit(req.limit).category(category).build());
         }
+
+        Budget budget = Budget.create(
+                command.type(),
+                command.title(),
+                command.start(),
+                command.end(),
+                command.incomes(),
+                command.fixedExpenses(),
+                uniquenessService
+        );
+
+        envelopes.forEach(env -> budget.addEnvelope(env.getCategory(), env.getLimit()));
 
         budgetRepository.save(budget);
     }
 
-    public record CreateBudgetCommand(String title, Type type, List<Income> incomes,
+    public record CreateBudgetCommand(String title, Type type, LocalDate start,
+                                      LocalDate end,
+                                      List<Income> incomes,
                                       List<FixedExpense> fixedExpenses,
                                       Set<CreateEnvelopeRequest> envelopes) implements Command {
     }
 
+
     public record CreateEnvelopeRequest(BigDecimal limit, String categoryId) {
+        @Override
+        public BigDecimal limit() {
+            return limit;
+        }
+
         public Envelope toEnvelope(BigDecimal limit, Category category) {
             return Envelope.builder().limit(limit).spent(BigDecimal.ZERO).category(category).build();
         }

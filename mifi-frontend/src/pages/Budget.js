@@ -266,6 +266,13 @@ export const Budget = () => {
         const [year, month] = selectedMonth.split('-');
         const budgetTitle = `${formatMonthDisplay(selectedMonth)} Budget`;
         
+        // Calculate start and end dates for the selected month
+        const startDate = `${year}-${month}-01`; // First day of the month
+        
+        // Calculate last day of the month
+        const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+        const endDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`; // Last day of the month
+        
         // Przygotuj incomes - konwertuj z monthlyIncomes
         const incomes = [];
         if (monthlyIncomes.myIncome > 0) {
@@ -311,6 +318,8 @@ export const Budget = () => {
         return {
             title: budgetTitle,
             type: "MONTHLY",
+            start: startDate,
+            end: endDate,
             incomes: incomes,
             fixedExpenses: fixedExpenses,
             envelopes: Array.from(envelopes)
