@@ -3,6 +3,7 @@ package pl.mifi.buget.api;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.mifi.buget.application.CreateCategoryCommandHandler;
+import pl.mifi.buget.application.GetAllCategoriesQuery;
 import pl.mifi.cqrs.Mediator;
 
 @RestController
@@ -19,6 +20,12 @@ public class CategoryController {
     @PostMapping
     public ResponseEntity<Boolean> createCategory(@RequestBody CreateCategoryCommandHandler.CreateCategoryCommand command) {
         mediator.send(command);
+        return ResponseEntity.ok(true);
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<Boolean> getCategories() {
+        mediator.get(new GetAllCategoriesQuery());
         return ResponseEntity.ok(true);
     }
 }

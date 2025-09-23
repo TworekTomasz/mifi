@@ -3,7 +3,12 @@ package pl.mifi.buget.api;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.mifi.buget.application.CreateBudgetCommandHandler;
+import pl.mifi.buget.application.GetByMonthQuery;
+import pl.mifi.buget.application.GetByMonthQueryHandler;
+import pl.mifi.buget.domain.Budget;
 import pl.mifi.cqrs.Mediator;
+
+import java.time.YearMonth;
 
 @RestController
 @RequestMapping("/budget")
@@ -20,5 +25,13 @@ public class BudgetController {
     public ResponseEntity<?> createBudget(@RequestBody CreateBudgetCommandHandler.CreateBudgetCommand command) {
         mediator.send(command);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("monthly/{ym}")
+    public ResponseEntity<Budget> getMonthly(@PathVariable String ym) {
+        YearMonth yearMonth = YearMonth.parse(ym); // ISO: YYYY-MM
+        Budget dto = mediator.get(new GetByMonthQuery(yearMonth));
+        return ResponseEntity.ok()
+                .body(dto);
     }
 }

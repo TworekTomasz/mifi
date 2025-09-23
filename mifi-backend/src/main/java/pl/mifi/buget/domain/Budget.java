@@ -28,23 +28,22 @@ public class Budget extends BaseAggregateRoot {
 
     private LocalDate periodEnd;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "budget_incomes", joinColumns = @JoinColumn(name = "budget_id"))
     private List<Income> incomes;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "budget_fixed_expenses", joinColumns = @JoinColumn(name = "budget_id"))
     private List<FixedExpense> fixedExpenses;
 
-    @OneToMany(mappedBy = "budget", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "budget", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private Set<Envelope> envelopes = new HashSet<>();
 
 
     public static Budget create(Type type, String title,
                                 LocalDate requestedStart, LocalDate requestedEnd,
-                                List<Income> incomes, List<FixedExpense> fixedExpenses,
-                                BudgetUniquenessService uniquenessService) {
+                                List<Income> incomes, List<FixedExpense> fixedExpenses) {
         Objects.requireNonNull(type);
         Objects.requireNonNull(title);
 
@@ -59,7 +58,6 @@ public class Budget extends BaseAggregateRoot {
                 .fixedExpenses(fixedExpenses)
                 .build();
 
-        uniquenessService.assertNoConflict(budget);
         return budget;
     }
 
@@ -73,6 +71,33 @@ public class Budget extends BaseAggregateRoot {
                 .limit(limit)
                 .spent(BigDecimal.ZERO)
                 .build());
+    }
+
+    public void rename(String newTitle) {
+        this.title = newTitle;
+    }
+
+    public void replaceFixedExpenses(List<FixedExpense> newItems) {
+        this.fixedExpenses.clear();
+        if (newItems != null && !newItems.isEmpty()) {
+            this.fixedExpenses.addAll(newItems);
+        }
+    }
+
+    public void replaceIncomes(List<Income> newItems) {
+        this.incomes.clear();
+        if (newItems != null && !newItems.isEmpty()) {
+            this.incomes.addAll(newItems);
+        }
+    }
+
+    public void replaceEnvelopes(Set<Envelope> newEnvelopes) {
+        this.envelopes.clear();
+        if (newEnvelopes != null) {
+            for (var s : newEnvelopes) {
+                addEnvelope(s.getCategory(), s.getLimit());
+            }
+        }
     }
 
 }

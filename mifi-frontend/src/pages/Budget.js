@@ -64,11 +64,16 @@ export const Budget = () => {
     // Stany dla formularzy
     const [showBudgetForm, setShowBudgetForm] = useState(false);
     const [showIncomeForm, setShowIncomeForm] = useState(false);
+    const [showCategoryForm, setShowCategoryForm] = useState(false);
+    const [showNewIncomeForm, setShowNewIncomeForm] = useState(false);
     const [editingBudget, setEditingBudget] = useState(null);
     const [editingIncome, setEditingIncome] = useState(null);
     
     // Dane budżetu - używamy struktury z kategoriami i źródłami
     const [monthlyBudgetCategories, setMonthlyBudgetCategories] = useState({});
+    
+    // Kategorie z API
+    const [availableCategories, setAvailableCategories] = useState([]);
     
     // Uproszczone dane planera przelewów
     const [monthlyIncomes, setMonthlyIncomes] = useState({
@@ -104,107 +109,236 @@ export const Budget = () => {
         defaultAmount: 0
     });
     
+    // Formularz nowej kategorii
+    const [newCategoryForm, setNewCategoryForm] = useState({
+        name: '',
+        description: ''
+    });
+    
+    // Formularz nowego przychodu
+    const [newIncomeForm, setNewIncomeForm] = useState({
+        source: '',
+        amount: '',
+        description: ''
+    });
+    
     // Stany dla zapisywania
     const [isSaving, setIsSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState('');
     
-    // Ładowanie danych z localStorage per miesiąc
+    // Ładowanie danych z API per miesiąc
     useEffect(() => {
-        const loadMonthlyData = () => {
-            // Pobierz dane miesięczne
-            const monthlyBudgets = JSON.parse(localStorage.getItem('mifi-monthly-budgets') || '{}');
-            const monthData = monthlyBudgets[selectedMonth];
-            
-            if (monthData && monthData.data) {
-                // Załaduj dane dla wybranego miesiąca
-                setMonthlyIncomes(monthData.data.monthlyIncomes || { myIncome: 0, spouseIncome: 0 });
-                setMonthlyTransfers(monthData.data.monthlyTransfers || {});
-                setMonthlyBudgetCategories(monthData.data.monthlyBudgetCategories || {});
-                setCustomTransferItems(monthData.data.customTransferItems || []);
-                setSubBudgets(monthData.data.subBudgets || {});
-            } else {
-                // Załaduj dane domyślne lub z starych kluczy localStorage (backward compatibility)
-                const savedMonthlyIncomes = localStorage.getItem('mifi-monthly-incomes');
-                const savedMonthlyTransfers = localStorage.getItem('mifi-monthly-transfers');
-                const savedCustomTransferItems = localStorage.getItem('mifi-custom-transfer-items');
-                const savedSubBudgets = localStorage.getItem('mifi-sub-budgets');
-                const savedMonthlyBudgetCategories = localStorage.getItem('mifi-monthly-budget-categories');
+        const loadMonthlyData = async () => {
+            try {
+                // Format selectedMonth to YYYY-MM for API call
+                const response = await fetch(`http://localhost:8080/budget/monthly/${selectedMonth}`);
                 
-                if (savedMonthlyIncomes) {
-                    setMonthlyIncomes(JSON.parse(savedMonthlyIncomes));
+                if (response.ok) {
+                    const budgetData = await response.json();
+                    // Convert backend data to frontend format
+                    convertBackendDataToFrontend(budgetData);
+                } else if (response.status === 404) {
+                    // No budget found for this month, use default values
+                    setDefaultValues();
                 } else {
-                    setMonthlyIncomes({ myIncome: 0, spouseIncome: 0 });
+                    console.error('Error loading budget data:', response.statusText);
+                    setDefaultValues();
                 }
-                
-                if (savedMonthlyTransfers) {
-                    setMonthlyTransfers(JSON.parse(savedMonthlyTransfers));
-                } else {
-                    // Inicjalizuj z domyślnymi wartościami
-                    const defaultTransfers = {};
-                    DEFAULT_TRANSFER_ITEMS.forEach(item => {
-                        if (item.type === 'expense') {
-                            defaultTransfers[item.name] = item.defaultAmount;
-                        }
-                    });
-                    setMonthlyTransfers(defaultTransfers);
-                }
-                
-                if (savedCustomTransferItems) {
-                    setCustomTransferItems(JSON.parse(savedCustomTransferItems));
-                } else {
-                    setCustomTransferItems([]);
-                }
-                
-                if (savedSubBudgets) {
-                    setSubBudgets(JSON.parse(savedSubBudgets));
-                } else {
-                    setSubBudgets({});
-                }
-                
-                if (savedMonthlyBudgetCategories) {
-                    setMonthlyBudgetCategories(JSON.parse(savedMonthlyBudgetCategories));
-                } else {
-                    // Inicjalizuj z domyślnymi kategoriami
-                    const defaultCategories = {};
-                    DEFAULT_BUDGET_CATEGORIES.forEach(category => {
-                        defaultCategories[category.name] = {
-                            amount: 0,
-                            source: 'Życie', // Domyślnie wszystkie z Życie
-                            description: category.description
-                        };
-                    });
-                    setMonthlyBudgetCategories(defaultCategories);
-                }
+            } catch (error) {
+                console.error('Error fetching budget data:', error);
+                setDefaultValues();
             }
         };
         
         loadMonthlyData();
     }, [selectedMonth]); // Przeładuj dane gdy zmieni się miesiąc
     
-    // Zapisywanie do localStorage
+    // Ładowanie kategorii z API
+    useEffect(() => {
+        const loadCategories = async () => {
+            try {
+                const response = await fetch('http://localhost:8080/budget/categories/all');
+                if (response.ok) {
+                    const categories = await response.json();
+                    setAvailableCategories(categories);
+                } else {
+                    console.error('Error loading categories:', response.statusText);
+                    // Fallback to default categories if API fails
+                    setAvailableCategories(DEFAULT_BUDGET_CATEGORIES);
+                }
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+                // Fallback to default categories if API fails
+                setAvailableCategories(DEFAULT_BUDGET_CATEGORIES);
+            }
+        };
+        
+        loadCategories();
+    }, []); // Load once on component mount
+    
+    // Helper function to convert backend data to frontend format
+    const convertBackendDataToFrontend = (budgetData) => {
+        // Convert incomes
+        const myIncome = budgetData.incomes?.find(inc => inc.source === "Salary Tomek")?.amount || 0;
+        const spouseIncome = budgetData.incomes?.find(inc => inc.source === "Salary Ania")?.amount || 0;
+        setMonthlyIncomes({ myIncome, spouseIncome });
+        
+        // Convert fixed expenses to transfers - this will be used for calculations
+        const transfers = {};
+        budgetData.fixedExpenses?.forEach(expense => {
+            // Map expense descriptions to transfer names (you may need to adjust this mapping)
+            const transferName = getTransferNameFromDescription(expense.description);
+            transfers[transferName] = expense.amount;
+        });
+        
+        // Also populate with default transfer items that might not be in fixedExpenses
+        DEFAULT_TRANSFER_ITEMS.forEach(item => {
+            if (item.type === 'expense' && !transfers[item.name]) {
+                transfers[item.name] = item.defaultAmount;
+            }
+        });
+        
+        setMonthlyTransfers(transfers);
+        
+        // Convert envelopes to budget categories
+        const budgetCategories = {};
+        budgetData.envelopes?.forEach(envelope => {
+            const categoryName = getCategoryNameFromId(envelope.categoryId);
+            if (categoryName) {
+                budgetCategories[categoryName] = {
+                    amount: envelope.limit,
+                    source: 'Życie', // Default source
+                    description: DEFAULT_BUDGET_CATEGORIES.find(cat => cat.name === categoryName)?.description || ''
+                };
+            }
+        });
+        setMonthlyBudgetCategories(budgetCategories);
+        
+        // Set empty arrays for custom items and sub-budgets (not in backend yet)
+        setCustomTransferItems([]);
+        setSubBudgets({});
+    };
+    
+    // Helper function to set default values when no budget exists
+    const setDefaultValues = () => {
+        setMonthlyIncomes({ myIncome: 0, spouseIncome: 0 });
+        
+        // Initialize with default transfer values
+        const defaultTransfers = {};
+        DEFAULT_TRANSFER_ITEMS.forEach(item => {
+            if (item.type === 'expense') {
+                defaultTransfers[item.name] = item.defaultAmount;
+            }
+        });
+        setMonthlyTransfers(defaultTransfers);
+        
+        // Initialize with available categories from API
+        const defaultCategories = {};
+        availableCategories.forEach(category => {
+            defaultCategories[category.name] = {
+                amount: 0,
+                source: 'Życie',
+                description: category.description
+            };
+        });
+        setMonthlyBudgetCategories(defaultCategories);
+        
+        setCustomTransferItems([]);
+        setSubBudgets({});
+    };
+    
+    // Helper function to map expense descriptions to transfer names
+    const getTransferNameFromDescription = (description) => {
+        // This mapping might need adjustment based on your actual data
+        const mapping = {
+            'Rata kredytu hipotecznego': 'Hipoteka (opłaty)',
+            'Media, czynsz, internet': 'Opłaty',
+            'Wpłacone na dobry zysk': 'Oszczędzanie',
+            'Nieprzewidziane wydatki': 'Wydatki nieregularne',
+            'Codzienne wydatki': 'Życie',
+            'Kieszonkowe, wydatki osobiste': 'Wypłata dla nas',
+            'Subskrypcje AI, automatyzacja': 'AI',
+            'Rata za telefon': 'Iphone',
+            'Raty za sprzęt AGD': 'Lodówka + pralka',
+            'Subskrypcja muzyki': 'Spotify'
+        };
+        return mapping[description] || description;
+    };
+    
+    // Helper function to map category IDs to names from API
+    const getCategoryNameFromId = (categoryId) => {
+        const category = availableCategories.find(cat => cat.id === categoryId);
+        return category ? category.name : null;
+    };
+    
+    // State update functions (no localStorage)
     const saveMonthlyBudgetCategories = (newCategories) => {
         setMonthlyBudgetCategories(newCategories);
-        localStorage.setItem('mifi-monthly-budget-categories', JSON.stringify(newCategories));
     };
     
     const saveMonthlyIncomes = (newIncomes) => {
         setMonthlyIncomes(newIncomes);
-        localStorage.setItem('mifi-monthly-incomes', JSON.stringify(newIncomes));
     };
     
     const saveMonthlyTransfers = (newTransfers) => {
         setMonthlyTransfers(newTransfers);
-        localStorage.setItem('mifi-monthly-transfers', JSON.stringify(newTransfers));
     };
     
     const saveCustomTransferItems = (newItems) => {
         setCustomTransferItems(newItems);
-        localStorage.setItem('mifi-custom-transfer-items', JSON.stringify(newItems));
     };
     
     const saveSubBudgets = (newSubBudgets) => {
         setSubBudgets(newSubBudgets);
-        localStorage.setItem('mifi-sub-budgets', JSON.stringify(newSubBudgets));
+    };
+    
+    // Funkcja tworzenia nowego envelope
+    const handleCreateEnvelope = (e) => {
+        e.preventDefault();
+        
+        // Dodaj nowy envelope do monthlyBudgetCategories
+        const newCategories = { ...monthlyBudgetCategories };
+        newCategories[newCategoryForm.name] = {
+            amount: parseFloat(newCategoryForm.description) || 0,
+            source: 'Życie', // Domyślne źródło
+            description: availableCategories.find(cat => cat.name === newCategoryForm.name)?.description || ''
+        };
+        
+        saveMonthlyBudgetCategories(newCategories);
+        
+        // Reset form
+        setNewCategoryForm({ name: '', description: '' });
+        setShowCategoryForm(false);
+        
+        setSaveMessage('Envelope added successfully!');
+        setTimeout(() => setSaveMessage(''), 3000);
+    };
+    
+    // Funkcja obsługi formularza nowego przychodu
+    const handleNewIncomeSubmit = (e) => {
+        e.preventDefault();
+        
+        // Dodaj nowy przychód do monthlyIncomes
+        const newIncomes = { ...monthlyIncomes };
+        
+        // Sprawdź czy to jest "Mój przychód" czy "Przychód Ani" czy nowy
+        if (newIncomeForm.source === "Salary Tomek" || newIncomeForm.source === "Mój przychód") {
+            newIncomes.myIncome = parseFloat(newIncomeForm.amount) || 0;
+        } else if (newIncomeForm.source === "Salary Ania" || newIncomeForm.source === "Przychód Ani") {
+            newIncomes.spouseIncome = parseFloat(newIncomeForm.amount) || 0;
+        } else {
+            // Dla nowych źródeł przychodu, dodaj do myIncome (można to rozszerzyć)
+            newIncomes.myIncome = (newIncomes.myIncome || 0) + (parseFloat(newIncomeForm.amount) || 0);
+        }
+        
+        saveMonthlyIncomes(newIncomes);
+        
+        // Reset form
+        setNewIncomeForm({ source: '', amount: '', description: '' });
+        setShowNewIncomeForm(false);
+        
+        setSaveMessage('Income added successfully!');
+        setTimeout(() => setSaveMessage(''), 3000);
     };
     
     // Funkcja zapisywania budżetu na dany miesiąc
@@ -213,19 +347,6 @@ export const Budget = () => {
         setSaveMessage('');
         
         try {
-            // Przygotuj dane do zapisania lokalnie
-            const localBudgetData = {
-                month: selectedMonth,
-                timestamp: new Date().toISOString(),
-                data: {
-                    monthlyIncomes,
-                    monthlyTransfers,
-                    monthlyBudgetCategories,
-                    customTransferItems,
-                    subBudgets
-                }
-            };
-            
             // Przygotuj dane dla backend API zgodnie z CreateBudgetCommand
             const backendBudgetData = prepareBudgetForBackend();
             
@@ -242,12 +363,7 @@ export const Budget = () => {
                 throw new Error(`Backend error: ${response.status} ${response.statusText}`);
             }
             
-            // Jeśli backend zapisał pomyślnie, zapisz też lokalnie
-            const existingData = JSON.parse(localStorage.getItem('mifi-monthly-budgets') || '{}');
-            existingData[selectedMonth] = localBudgetData;
-            localStorage.setItem('mifi-monthly-budgets', JSON.stringify(existingData));
-            
-            setSaveMessage('Budget saved successfully to backend and locally!');
+            setSaveMessage('Budget saved successfully!');
             
             // Ukryj wiadomość po 3 sekundach
             setTimeout(() => setSaveMessage(''), 3000);
@@ -288,10 +404,10 @@ export const Budget = () => {
             });
         }
         
-        // Przygotuj fixed expenses - konwertuj z monthlyTransfers (nie-budgetowalne)
+        // Przygotuj fixed expenses - konwertuj z monthlyTransfers (wszystkie wydatki)
         const fixedExpenses = [];
         allTransferItems.forEach(item => {
-            if (!item.isBudgetable && monthlyTransfers[item.name] > 0) {
+            if (monthlyTransfers[item.name] > 0) {
                 fixedExpenses.push({
                     amount: monthlyTransfers[item.name],
                     description: item.description || item.name,
@@ -326,32 +442,10 @@ export const Budget = () => {
         };
     };
     
-    // Funkcja mapująca nazwy kategorii na ID - potrzebujesz endpoint w backend
+    // Funkcja mapująca nazwy kategorii na ID z API
     const getCategoryIdFromName = (categoryName) => {
-        // To będzie potrzebowało endpoint do pobierania kategorii z backend
-        // Na razie używamy prostego mapowania
-        const categoryMapping = {
-            'GROCERIES': '1',
-            'ZABKA': '2',
-            'PHARMACY': '3',
-            'FUEL': '4',
-            'PARKING_TOLLS': '5',
-            'TRANSPORT_RIDEHAIL': '6',
-            'FAST_FOOD': '7',
-            'RESTAURANT': '8',
-            'CAFE': '9',
-            'DESSERTS': '10',
-            'ENTERTAINMENT': '11',
-            'GIFTS': '12',
-            'HOME_GOODS': '13',
-            'BEAUTY_PERSONAL_CARE': '14',
-            'GOVERNMENT_FEES': '15',
-            'FITNESS_WELLNESS': '16',
-            'ONLINE_SERVICES': '17',
-            'TRANSFER': '18'
-        };
-        
-        return categoryMapping[categoryName] || null;
+        const category = availableCategories.find(cat => cat.name === categoryName);
+        return category ? category.id : null;
     };
     
 
@@ -421,7 +515,11 @@ export const Budget = () => {
     
     // Obliczenia dla planera przelewów
     const totalIncome = monthlyIncomes.myIncome + monthlyIncomes.spouseIncome;
-    const totalTransferExpenses = Object.values(monthlyTransfers).reduce((sum, amount) => sum + (amount || 0), 0);
+    
+    // Sumuj wszystkie wydatki (teraz wszystkie są fixedExpenses)
+    const totalTransferExpenses = allTransferItems
+        .reduce((sum, item) => sum + (monthlyTransfers[item.name] || 0), 0);
+    
     const remainingAfterTransfers = totalIncome - totalTransferExpenses;
     
     // Kategorie dostępne do budżetowania
@@ -582,7 +680,16 @@ export const Budget = () => {
                     <div className="space-y-6">
                         {/* Pola przychodu */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Przychody miesięczne</h3>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-medium text-gray-900">Przychody miesięczne</h3>
+                                <button
+                                    onClick={() => setShowNewIncomeForm(true)}
+                                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                >
+                                    <PlusIcon className="h-4 w-4 mr-1" />
+                                    Dodaj przychód
+                                </button>
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Mój przychód</label>
@@ -845,7 +952,16 @@ export const Budget = () => {
 
                         {/* Prosta tabela 3-kolumnowa */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-6">Budżet kategorii na {formatMonthDisplay(selectedMonth)}</h3>
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-lg font-medium text-gray-900">Budżet kategorii na {formatMonthDisplay(selectedMonth)}</h3>
+                                <button
+                                    onClick={() => setShowCategoryForm(true)}
+                                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                                >
+                                    <PlusIcon className="h-4 w-4 mr-1" />
+                                    Dodaj envelope
+                                </button>
+                            </div>
                             
                             <div className="overflow-x-auto">
                                 <table className="w-full">
@@ -984,6 +1100,144 @@ export const Budget = () => {
                                         className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                                     >
                                         Dodaj pozycję
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal formularza nowego envelope */}
+            {showCategoryForm && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                    <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                        <div className="mt-3">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">
+                                Dodaj envelope
+                            </h3>
+                            <form onSubmit={handleCreateEnvelope} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Kategoria</label>
+                                    <select
+                                        value={newCategoryForm.name}
+                                        onChange={(e) => setNewCategoryForm({...newCategoryForm, name: e.target.value})}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        required
+                                    >
+                                        <option value="">Wybierz kategorię</option>
+                                        {availableCategories.map(category => (
+                                            <option key={category.id} value={category.name}>
+                                                {category.name} - {category.description}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Kwota (limit)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={newCategoryForm.description}
+                                        onChange={(e) => setNewCategoryForm({...newCategoryForm, description: e.target.value})}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0.00"
+                                        required
+                                    />
+                                </div>
+                                
+                                <div className="flex justify-end space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setNewCategoryForm({ name: '', description: '' });
+                                            setShowCategoryForm(false);
+                                        }}
+                                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    >
+                                        Anuluj
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                                    >
+                                        Dodaj envelope
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal formularza nowego przychodu */}
+            {showNewIncomeForm && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                    <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                        <div className="mt-3">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">
+                                Dodaj nowy przychód
+                            </h3>
+                            <form onSubmit={handleNewIncomeSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Źródło przychodu</label>
+                                    <select
+                                        value={newIncomeForm.source}
+                                        onChange={(e) => setNewIncomeForm({...newIncomeForm, source: e.target.value})}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        required
+                                    >
+                                        <option value="">Wybierz źródło</option>
+                                        <option value="Salary Tomek">Mój przychód</option>
+                                        <option value="Salary Ania">Przychód Ani</option>
+                                        <option value="Freelance">Freelance</option>
+                                        <option value="Bonus">Bonus</option>
+                                        <option value="Investment">Inwestycje</option>
+                                        <option value="Other">Inne</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Kwota</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={newIncomeForm.amount}
+                                        onChange={(e) => setNewIncomeForm({...newIncomeForm, amount: e.target.value})}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        placeholder="0.00"
+                                        required
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Opis (opcjonalny)</label>
+                                    <textarea
+                                        value={newIncomeForm.description}
+                                        onChange={(e) => setNewIncomeForm({...newIncomeForm, description: e.target.value})}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        rows="2"
+                                        placeholder="Dodatkowe informacje o przychodzie"
+                                    />
+                                </div>
+                                
+                                <div className="flex justify-end space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setNewIncomeForm({ source: '', amount: '', description: '' });
+                                            setShowNewIncomeForm(false);
+                                        }}
+                                        className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    >
+                                        Anuluj
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                    >
+                                        Dodaj przychód
                                     </button>
                                 </div>
                             </form>

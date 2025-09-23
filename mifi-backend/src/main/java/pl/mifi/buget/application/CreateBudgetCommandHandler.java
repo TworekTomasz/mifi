@@ -1,6 +1,7 @@
 package pl.mifi.buget.application;
 
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import pl.mifi.buget.application.services.BudgetUniquenessService;
 import pl.mifi.buget.domain.*;
 import pl.mifi.buget.infrastructure.BudgetRepository;
@@ -11,6 +12,7 @@ import pl.mifi.cqrs.CommandHandler;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -30,28 +32,48 @@ public class CreateBudgetCommandHandler implements CommandHandler<CreateBudgetCo
     }
 
     @Override
+    @Transactional
     public void handle(CreateBudgetCommand command) {
 
-        List<Envelope> envelopes = new ArrayList<>();
+        Norm norm = TypeNormalizer.normalize(command.type(), command.start(), command.end());
+
+        Set<Envelope> envelopes = new HashSet<>();
         for (CreateEnvelopeRequest req : command.envelopes()) {
             Category category = categoryRepository.findById(req.categoryId())
                     .orElseThrow(() -> new IllegalArgumentException("Category not found: " + req.categoryId()));
             envelopes.add(Envelope.builder().limit(req.limit).category(category).build());
         }
 
-        Budget budget = Budget.create(
-                command.type(),
-                command.title(),
-                command.start(),
-                command.end(),
-                command.incomes(),
-                command.fixedExpenses(),
-                uniquenessService
-        );
+        var existingOpt = budgetRepository.findByTypeAndPeriod(
+                command.type(), norm.start(), norm.end());
 
-        envelopes.forEach(env -> budget.addEnvelope(env.getCategory(), env.getLimit()));
+        if (existingOpt.isPresent()) {
+            // UPDATE in place
+            var b = existingOpt.get();
+            b.rename(command.title());
+            b.replaceIncomes(command.incomes());
+            b.replaceFixedExpenses(command.fixedExpenses());
+            b.replaceEnvelopes(envelopes);
+            // JPA will flush on commit
+            System.out.println("Updated existing budget for " + norm.start());
+        } else {
+            // CREATE new
+            var b = Budget.create(
+                    command.type(),
+                    command.title(),
+                    command.start(),
+                    command.end(),
+                    command.incomes(),
+                    command.fixedExpenses()
+            );
+            // add envelopes via domain API
+            for (var s : envelopes) {
+                b.addEnvelope(s.getCategory(), s.getLimit());
+            }
+            budgetRepository.save(b);
+            System.out.println("Created new budget for " + norm.start());
+        }
 
-        budgetRepository.save(budget);
     }
 
     public record CreateBudgetCommand(String title, Type type, LocalDate start,

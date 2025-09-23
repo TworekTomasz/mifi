@@ -24,10 +24,9 @@ public class BudgetUniquenessServiceImpl implements BudgetUniquenessService {
     }
 
     @Override
-    public void assertNoConflict(Budget newBudget) {
+    public boolean hasConflict(Budget newBudget) {
         var policy = policies.get(newBudget.getType());
         List<Budget> budgets = budgetRepository.findAllByType(newBudget.getType());
-        boolean conflict = budgets.stream().anyMatch(ex -> policy.conflictsWith(ex, newBudget));
-        if (conflict) throw new IllegalArgumentException("Budget conflict for " + newBudget.getType());
+        return budgets.stream().anyMatch(ex -> policy.conflictsWith(ex, newBudget));
     }
 }
