@@ -4,7 +4,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.mifi.buget.application.CreateBudgetCommandHandler;
 import pl.mifi.buget.application.GetByMonthQuery;
-import pl.mifi.buget.application.GetByMonthQueryHandler;
 import pl.mifi.buget.domain.Budget;
 import pl.mifi.cqrs.Mediator;
 
