@@ -126,6 +126,11 @@ export const Budget = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState('');
     
+    // Stany dla domyślnego szablonu
+    const [hasBudgetInDB, setHasBudgetInDB] = useState(false);
+    const [isLoadingDefault, setIsLoadingDefault] = useState(false);
+    const [isUpdatingDefault, setIsUpdatingDefault] = useState(false);
+    
     // Ładowanie danych z API per miesiąc
     useEffect(() => {
         const loadMonthlyData = async () => {
@@ -137,16 +142,20 @@ export const Budget = () => {
                     const budgetData = await response.json();
                     // Convert backend data to frontend format
                     convertBackendDataToFrontend(budgetData);
+                    setHasBudgetInDB(true);
                 } else if (response.status === 404) {
-                    // No budget found for this month, use default values
-                    setDefaultValues();
+                    // No budget found for this month, show empty view
+                    setEmptyView();
+                    setHasBudgetInDB(false);
                 } else {
                     console.error('Error loading budget data:', response.statusText);
-                    setDefaultValues();
+                    setEmptyView();
+                    setHasBudgetInDB(false);
                 }
             } catch (error) {
                 console.error('Error fetching budget data:', error);
-                setDefaultValues();
+                setEmptyView();
+                setHasBudgetInDB(false);
             }
         };
         
@@ -215,6 +224,15 @@ export const Budget = () => {
         setMonthlyBudgetCategories(budgetCategories);
         
         // Set empty arrays for custom items and sub-budgets (not in backend yet)
+        setCustomTransferItems([]);
+        setSubBudgets({});
+    };
+    
+    // Helper function to set empty view when no budget exists
+    const setEmptyView = () => {
+        setMonthlyIncomes({ myIncome: 0, spouseIncome: 0 });
+        setMonthlyTransfers({});
+        setMonthlyBudgetCategories({});
         setCustomTransferItems([]);
         setSubBudgets({});
     };
@@ -448,6 +466,67 @@ export const Budget = () => {
         return category ? category.id : null;
     };
     
+    // Funkcja ładowania domyślnego szablonu
+    const handleLoadDefaultTemplate = async () => {
+        setIsLoadingDefault(true);
+        setSaveMessage('');
+        
+        try {
+            const response = await fetch('http://localhost:8080/budget/default');
+            
+            if (response.ok) {
+                const defaultBudgetData = await response.json();
+                // Convert default template to frontend format
+                convertBackendDataToFrontend(defaultBudgetData);
+                setHasBudgetInDB(true);
+                setSaveMessage('Default template loaded successfully!');
+                setTimeout(() => setSaveMessage(''), 3000);
+            } else {
+                throw new Error(`Failed to load default template: ${response.status} ${response.statusText}`);
+            }
+        } catch (error) {
+            console.error('Error loading default template:', error);
+            setSaveMessage(`Error loading default template: ${error.message}`);
+            setTimeout(() => setSaveMessage(''), 3000);
+        } finally {
+            setIsLoadingDefault(false);
+        }
+    };
+    
+    // Funkcja aktualizacji domyślnego szablonu
+    const handleUpdateDefaultTemplate = async () => {
+        setIsUpdatingDefault(true);
+        setSaveMessage('');
+        
+        try {
+            // Przygotuj dane dla backend API zgodnie z CreateBudgetCommand
+            const backendBudgetData = prepareBudgetForBackend();
+            
+            // Zapisz jako domyślny szablon
+            const response = await fetch('http://localhost:8080/budget/default', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(backendBudgetData)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Backend error: ${response.status} ${response.statusText}`);
+            }
+            
+            setSaveMessage('Default template updated successfully!');
+            setTimeout(() => setSaveMessage(''), 3000);
+            
+        } catch (error) {
+            console.error('Error updating default template:', error);
+            setSaveMessage(`Error updating default template: ${error.message}`);
+            setTimeout(() => setSaveMessage(''), 3000);
+        } finally {
+            setIsUpdatingDefault(false);
+        }
+    };
+    
 
     
     // Obsługa formularza nowej pozycji transferu
@@ -585,6 +664,54 @@ export const Budget = () => {
                                     {saveMessage}
                                 </span>
                             )}
+                            
+                            {/* Buttons for default template functionality */}
+                            {!hasBudgetInDB && (
+                                <button
+                                    onClick={handleLoadDefaultTemplate}
+                                    disabled={isLoadingDefault}
+                                    className={`inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
+                                        isLoadingDefault
+                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                            : 'bg-green-600 text-white hover:bg-green-700'
+                                    }`}
+                                >
+                                    {isLoadingDefault ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                            Loading...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <PlusIcon className="h-5 w-5 mr-2" />
+                                            Use Default Template
+                                        </>
+                                    )}
+                                </button>
+                            )}
+                            
+                            <button
+                                onClick={handleUpdateDefaultTemplate}
+                                disabled={isUpdatingDefault}
+                                className={`inline-flex items-center px-4 py-2 rounded-lg font-medium transition-colors ${
+                                    isUpdatingDefault
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : 'bg-purple-600 text-white hover:bg-purple-700'
+                                }`}
+                            >
+                                {isUpdatingDefault ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                        Updating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <PencilIcon className="h-5 w-5 mr-2" />
+                                        Update Default
+                                    </>
+                                )}
+                            </button>
+                            
                             <button
                                 onClick={handleSave}
                                 disabled={isSaving}
@@ -675,8 +802,54 @@ export const Budget = () => {
                     </div>
                 </div>
 
+                {/* No budget view */}
+                {!hasBudgetInDB && (
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                        <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                            <CalendarIcon className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No budget found for {formatMonthDisplay(selectedMonth)}</h3>
+                        <p className="text-gray-500 mb-6">
+                            This month doesn't have a budget yet. You can start with a default template or create a new one from scratch.
+                        </p>
+                        <div className="flex justify-center space-x-4">
+                            <button
+                                onClick={handleLoadDefaultTemplate}
+                                disabled={isLoadingDefault}
+                                className={`inline-flex items-center px-6 py-3 rounded-lg font-medium transition-colors ${
+                                    isLoadingDefault
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : 'bg-green-600 text-white hover:bg-green-700'
+                                }`}
+                            >
+                                {isLoadingDefault ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                        Loading...
+                                    </>
+                                ) : (
+                                    <>
+                                        <PlusIcon className="h-5 w-5 mr-2" />
+                                        Use Default Template
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setHasBudgetInDB(true);
+                                    setEmptyView();
+                                }}
+                                className="inline-flex items-center px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                                <PencilIcon className="h-5 w-5 mr-2" />
+                                Create New Budget
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Zawartość zakładek */}
-                {activeTab === 'transfers' && (
+                {hasBudgetInDB && activeTab === 'transfers' && (
                     <div className="space-y-6">
                         {/* Pola przychodu */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -915,7 +1088,7 @@ export const Budget = () => {
                     </div>
                 )}
 
-                {activeTab === 'budget' && (
+                {hasBudgetInDB && activeTab === 'budget' && (
                     <div className="space-y-6">
                         {/* 3 kafelki z pozostałymi kwotami */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
