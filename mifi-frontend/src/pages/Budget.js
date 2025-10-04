@@ -58,8 +58,8 @@ export const Budget = () => {
         { name: 'TRANSFER', description: 'Przelewy, transfery' }
     ];
     
-    // Stany dla zakładek
-    const [activeTab, setActiveTab] = useState('transfers'); // 'transfers' lub 'budget'
+    // Remove tabs - single view only
+    // const [activeTab, setActiveTab] = useState('transfers'); // 'transfers' lub 'budget'
     
     // Stany dla formularzy
     const [showBudgetForm, setShowBudgetForm] = useState(false);
@@ -435,15 +435,30 @@ export const Budget = () => {
         });
         
         // Przygotuj envelopes - konwertuj z monthlyBudgetCategories
-        const envelopes = new Set();
+        const envelopes = [];
+        
+        // Add FUND envelopes for budget sources (Życie, Wydatki nieregularne, Wypłata dla nas)
+        const fundSources = allTransferItems.filter(item => item.isBudgetable);
+        fundSources.forEach(fundItem => {
+            const categoryId = getCategoryIdFromName(fundItem.name);
+            if (categoryId && (monthlyTransfers[fundItem.name] || fundItem.defaultAmount) > 0) {
+                envelopes.push({
+                    categoryId: categoryId,
+                    limit: monthlyTransfers[fundItem.name] || fundItem.defaultAmount || 0,
+                    type: "FUND"
+                });
+            }
+        });
+        
+        // Add SPENDING envelopes for custom categories
         Object.entries(monthlyBudgetCategories).forEach(([categoryName, categoryData]) => {
             if (categoryData.amount > 0) {
-                // Mapuj nazwy kategorii na categoryId - potrzebujesz mapowania w backend
                 const categoryId = getCategoryIdFromName(categoryName);
                 if (categoryId) {
-                    envelopes.add({
+                    envelopes.push({
                         categoryId: categoryId,
-                        limit: categoryData.amount
+                        limit: categoryData.amount,
+                        type: "SPENDING"
                     });
                 }
             }
@@ -456,7 +471,7 @@ export const Budget = () => {
             end: endDate,
             incomes: incomes,
             fixedExpenses: fixedExpenses,
-            envelopes: Array.from(envelopes)
+            envelopes: envelopes
         };
     };
     
@@ -595,9 +610,18 @@ export const Budget = () => {
     // Obliczenia dla planera przelewów
     const totalIncome = monthlyIncomes.myIncome + monthlyIncomes.spouseIncome;
     
-    // Sumuj wszystkie wydatki (teraz wszystkie są fixedExpenses)
+    // Sumuj wszystkie wydatki - używaj wartości z monthlyTransfers lub defaultAmount
     const totalTransferExpenses = allTransferItems
-        .reduce((sum, item) => sum + (monthlyTransfers[item.name] || 0), 0);
+        .reduce((sum, item) => sum + (monthlyTransfers[item.name] || item.defaultAmount || 0), 0);
+    
+    // Oblicz osobno sztywne wydatki i fundusze
+    const totalFixedExpenses = allTransferItems
+        .filter(item => !item.isBudgetable)
+        .reduce((sum, item) => sum + (monthlyTransfers[item.name] || item.defaultAmount || 0), 0);
+    
+    const totalFunds = allTransferItems
+        .filter(item => item.isBudgetable)
+        .reduce((sum, item) => sum + (monthlyTransfers[item.name] || item.defaultAmount || 0), 0);
     
     const remainingAfterTransfers = totalIncome - totalTransferExpenses;
     
@@ -768,39 +792,6 @@ export const Budget = () => {
                     </div>
                 </div>
 
-                {/* Zakładki */}
-                <div className="mb-6">
-                    <div className="border-b border-gray-200">
-                        <nav className="-mb-px flex space-x-8">
-                            <button
-                                onClick={() => setActiveTab('transfers')}
-                                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                                    activeTab === 'transfers'
-                                        ? 'border-indigo-500 text-indigo-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                            >
-                                <div className="flex items-center space-x-2">
-                                    <TableCellsIcon className="h-5 w-5" />
-                                    <span>Planer przelewów</span>
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('budget')}
-                                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                                    activeTab === 'budget'
-                                        ? 'border-indigo-500 text-indigo-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                            >
-                                <div className="flex items-center space-x-2">
-                                    <CalculatorIcon className="h-5 w-5" />
-                                    <span>Budżet wydatków</span>
-                                </div>
-                            </button>
-                        </nav>
-                    </div>
-                </div>
 
                 {/* No budget view */}
                 {!hasBudgetInDB && (
@@ -848,8 +839,8 @@ export const Budget = () => {
                     </div>
                 )}
 
-                {/* Zawartość zakładek */}
-                {hasBudgetInDB && activeTab === 'transfers' && (
+                {/* Main Budget Content */}
+                {hasBudgetInDB && (
                     <div className="space-y-6">
                         {/* Pola przychodu */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -903,10 +894,38 @@ export const Budget = () => {
                             </div>
                         </div>
 
-                        {/* Tabela przelewów */}
+                        {/* Summary Section */}
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Podsumowanie budżetu</h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="p-4 bg-green-50 rounded-lg">
+                                    <div className="text-sm font-medium text-green-800">Łączny przychód</div>
+                                    <div className="text-xl font-bold text-green-600">{formatCurrency(totalIncome)}</div>
+                                </div>
+                                <div className="p-4 bg-red-50 rounded-lg">
+                                    <div className="text-sm font-medium text-red-800">Sztywne wydatki</div>
+                                    <div className="text-xl font-bold text-red-600">
+                                        {formatCurrency(totalFixedExpenses)}
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-yellow-50 rounded-lg">
+                                    <div className="text-sm font-medium text-yellow-800">Fundusze</div>
+                                    <div className="text-xl font-bold text-yellow-600">
+                                        {formatCurrency(totalFunds)}
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-blue-50 rounded-lg">
+                                    <div className="text-sm font-medium text-blue-800">Pozostaje</div>
+                                    <div className="text-xl font-bold text-blue-600">{formatCurrency(remainingAfterTransfers)}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Sztywne wydatki - Fixed Expenses Table */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-medium text-gray-900">Planowane przelewy i wydatki</h3>
+                                <h3 className="text-lg font-medium text-gray-900">Sztywne wydatki</h3>
                                 <button
                                     onClick={() => setShowNewTransferForm(true)}
                                     className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
@@ -928,7 +947,7 @@ export const Budget = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {allTransferItems.map((item, index) => (
+                                        {allTransferItems.filter(item => !item.isBudgetable).map((item, index) => (
                                             <tr key={item.id || index} className="border-b border-gray-100 hover:bg-gray-50">
                                                 <td className="py-3 px-4 font-medium text-gray-900">{item.name}</td>
                                                 <td className="py-3 px-4 text-gray-600">{item.bank}</td>
@@ -950,11 +969,6 @@ export const Budget = () => {
                                                 </td>
                                                 <td className="py-3 px-4 text-center">
                                                     <div className="flex items-center justify-center space-x-2">
-                                                        {item.isBudgetable && (
-                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                Budżetowalne
-                                                            </span>
-                                                        )}
                                                         {item.isCustom && (
                                                             <button
                                                                 onClick={() => handleDeleteTransferItem(item.name, true)}
@@ -964,8 +978,67 @@ export const Budget = () => {
                                                                 <TrashIcon className="h-4 w-4" />
                                                             </button>
                                                         )}
-                                                        {!item.isCustom && !item.isBudgetable && (
-                                                            <span className="text-xs text-gray-400">Sztywny wydatek</span>
+                                                        {!item.isCustom && (
+                                                            <span className="text-xs text-gray-400">Domyślny</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Fundusze - Budgetable Categories Table */}
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Fundusze</h3>
+                            
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-gray-200">
+                                            <th className="text-left py-3 px-4 font-medium text-gray-900">Nazwa</th>
+                                            <th className="text-left py-3 px-4 font-medium text-gray-900">Bank/Źródło</th>
+                                            <th className="text-left py-3 px-4 font-medium text-gray-900">Opis</th>
+                                            <th className="text-right py-3 px-4 font-medium text-gray-900">Kwota</th>
+                                            <th className="text-center py-3 px-4 font-medium text-gray-900">Akcje</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {allTransferItems.filter(item => item.isBudgetable).map((item, index) => (
+                                            <tr key={item.id || index} className="border-b border-gray-100 hover:bg-gray-50">
+                                                <td className="py-3 px-4 font-medium text-gray-900">{item.name}</td>
+                                                <td className="py-3 px-4 text-gray-600">{item.bank}</td>
+                                                <td className="py-3 px-4 text-gray-600">{item.description}</td>
+                                                <td className="py-3 px-4 text-right">
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={monthlyTransfers[item.name] || item.defaultAmount || 0}
+                                                        onChange={(e) => {
+                                                            const newTransfers = { 
+                                                                ...monthlyTransfers, 
+                                                                [item.name]: parseFloat(e.target.value) || 0 
+                                                            };
+                                                            saveMonthlyTransfers(newTransfers);
+                                                        }}
+                                                        className="w-24 px-2 py-1 text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                                    />
+                                                </td>
+                                                <td className="py-3 px-4 text-center">
+                                                    <div className="flex items-center justify-center space-x-2">
+                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                            Fundusz
+                                                        </span>
+                                                        {item.isCustom && (
+                                                            <button
+                                                                onClick={() => handleDeleteTransferItem(item.name, true)}
+                                                                className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                                                                title="Usuń pozycję"
+                                                            >
+                                                                <TrashIcon className="h-4 w-4" />
+                                                            </button>
                                                         )}
                                                     </div>
                                                 </td>
@@ -974,9 +1047,9 @@ export const Budget = () => {
                                     </tbody>
                                     <tfoot>
                                         <tr className="border-t-2 border-gray-300 bg-gray-50">
-                                            <td colSpan="4" className="py-3 px-4 font-medium text-gray-900">Łączne wydatki:</td>
-                                            <td className="py-3 px-4 text-right font-bold text-red-600">
-                                                {formatCurrency(totalTransferExpenses)}
+                                            <td colSpan="4" className="py-3 px-4 font-medium text-gray-900">Łączne fundusze:</td>
+                                            <td className="py-3 px-4 text-right font-bold text-green-600">
+                                                {formatCurrency(totalFunds)}
                                             </td>
                                         </tr>
                                         <tr className="bg-blue-50">
@@ -990,149 +1063,19 @@ export const Budget = () => {
                             </div>
                         </div>
 
-                        {/* Sekcja budżetowania kategorii */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Budżetowanie środków</h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                                Podziel środki z kategorii budżetowalnych na konkretne wydatki
-                            </p>
-                            
-                            <div className="space-y-6">
-                                {Object.entries(budgetableAmounts).map(([categoryName, amount]) => (
-                                    <div key={categoryName} className="border border-gray-200 rounded-lg p-4">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h4 className="text-md font-medium text-gray-900">{categoryName}</h4>
-                                            <div className="text-right">
-                                                <span className="text-lg font-bold text-green-600">{formatCurrency(amount)}</span>
-                                                <p className="text-xs text-gray-500">dostępne</p>
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Pod-budżet dla tej kategorii */}
-                                        <div className="space-y-2">
-                                            {subBudgets[categoryName]?.map((subItem, index) => (
-                                                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                                    <span className="text-sm text-gray-700">{subItem.name}</span>
-                                                    <div className="flex items-center space-x-2">
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={subItem.amount || 0}
-                                                            onChange={(e) => {
-                                                                const newSubBudgets = { ...subBudgets };
-                                                                if (!newSubBudgets[categoryName]) newSubBudgets[categoryName] = [];
-                                                                newSubBudgets[categoryName][index] = {
-                                                                    ...subItem,
-                                                                    amount: parseFloat(e.target.value) || 0
-                                                                };
-                                                                saveSubBudgets(newSubBudgets);
-                                                            }}
-                                                            className="w-20 px-2 py-1 text-right text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                        />
-                                                        <button
-                                                            onClick={() => {
-                                                                const newSubBudgets = { ...subBudgets };
-                                                                newSubBudgets[categoryName] = newSubBudgets[categoryName].filter((_, i) => i !== index);
-                                                                saveSubBudgets(newSubBudgets);
-                                                            }}
-                                                            className="p-1 text-gray-400 hover:text-red-600"
-                                                        >
-                                                            <TrashIcon className="h-3 w-3" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )) || []}
-                                            
-                                            {/* Przycisk dodania nowego pod-budżetu */}
-                                            <button
-                                                onClick={() => {
-                                                    const newSubBudgets = { ...subBudgets };
-                                                    if (!newSubBudgets[categoryName]) newSubBudgets[categoryName] = [];
-                                                    const newName = prompt('Nazwa kategorii:');
-                                                    if (newName) {
-                                                        newSubBudgets[categoryName].push({ name: newName, amount: 0 });
-                                                        saveSubBudgets(newSubBudgets);
-                                                    }
-                                                }}
-                                                className="w-full px-3 py-2 border border-dashed border-gray-300 rounded text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700"
-                                            >
-                                                + Dodaj kategorię
-                                            </button>
-                                            
-                                            {/* Podsumowanie dla tej kategorii */}
-                                            {subBudgets[categoryName] && (
-                                                <div className="pt-2 border-t border-gray-200">
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-600">Zabudżetowano:</span>
-                                                        <span className="font-medium">
-                                                            {formatCurrency(subBudgets[categoryName].reduce((sum, item) => sum + (item.amount || 0), 0))}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-600">Pozostaje:</span>
-                                                        <span className={`font-medium ${
-                                                            amount - subBudgets[categoryName].reduce((sum, item) => sum + (item.amount || 0), 0) >= 0 
-                                                                ? 'text-green-600' 
-                                                                : 'text-red-600'
-                                                        }`}>
-                                                            {formatCurrency(amount - subBudgets[categoryName].reduce((sum, item) => sum + (item.amount || 0), 0))}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {hasBudgetInDB && activeTab === 'budget' && (
-                    <div className="space-y-6">
-                        {/* 3 kafelki z pozostałymi kwotami */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {availableBudgetSources.map(source => {
-                                const available = budgetableAmounts[source] || 0;
-                                const used = usedFromSources[source] || 0;
-                                const remaining = available - used;
-                                
-                                return (
-                                    <div key={source} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-lg font-medium text-gray-900">{source}</h3>
-                                            <div className="text-right">
-                                                <p className={`text-2xl font-bold ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                    {formatCurrency(remaining)}
-                                                </p>
-                                                <p className="text-xs text-gray-500">pozostało</p>
-                                            </div>
-                                        </div>
-                                        <div className="mt-3 text-sm text-gray-600">
-                                            <div className="flex justify-between">
-                                                <span>Dostępne:</span>
-                                                <span>{formatCurrency(available)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span>Zabudżetowane:</span>
-                                                <span>{formatCurrency(used)}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Prosta tabela 3-kolumnowa */}
+                        {/* Custom Categories Section */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                             <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-lg font-medium text-gray-900">Budżet kategorii na {formatMonthDisplay(selectedMonth)}</h3>
+                                <div>
+                                    <h3 className="text-lg font-medium text-gray-900">Własne kategorie</h3>
+                                    <p className="text-sm text-gray-600 mt-1">Definiuj własne kategorie wydatków jak groceries, home itp.</p>
+                                </div>
                                 <button
                                     onClick={() => setShowCategoryForm(true)}
                                     className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
                                 >
                                     <PlusIcon className="h-4 w-4 mr-1" />
-                                    Dodaj envelope
+                                    Dodaj kategorię
                                 </button>
                             </div>
                             

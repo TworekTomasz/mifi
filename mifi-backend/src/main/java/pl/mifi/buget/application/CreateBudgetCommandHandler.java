@@ -68,7 +68,7 @@ public class CreateBudgetCommandHandler implements CommandHandler<CreateBudgetCo
             );
             // add envelopes via domain API
             for (var s : envelopes) {
-                b.addEnvelope(s.getCategory(), s.getLimit());
+                b.addEnvelope(s.getCategory(), s.getLimit(), s.getType());
             }
             budgetRepository.save(b);
             System.out.println("Created new budget for " + norm.start());
@@ -84,14 +84,14 @@ public class CreateBudgetCommandHandler implements CommandHandler<CreateBudgetCo
     }
 
 
-    public record CreateEnvelopeRequest(BigDecimal limit, String categoryId) {
+    public record CreateEnvelopeRequest(BigDecimal limit, String categoryId, EnvelopeType type) {
         @Override
         public BigDecimal limit() {
             return limit;
         }
 
-        public Envelope toEnvelope(BigDecimal limit, Category category) {
-            return Envelope.builder().limit(limit).spent(BigDecimal.ZERO).category(category).build();
+        public Envelope toEnvelope(BigDecimal limit, Category category, EnvelopeType type) {
+            return Envelope.builder().limit(limit).spent(BigDecimal.ZERO).category(category).type(type).build();
         }
 
         public static Set<Envelope> toEnvelopes(Set<CreateEnvelopeRequest> requests, List<Category> categories) {
@@ -100,7 +100,7 @@ public class CreateBudgetCommandHandler implements CommandHandler<CreateBudgetCo
                         .filter(cat -> cat.getId().toString().equals(request.categoryId()))
                         .findFirst()
                         .orElseThrow(() -> new IllegalArgumentException("Category with id " + request.categoryId() + " does not exist"));
-                return request.toEnvelope(request.limit(), category);
+                return request.toEnvelope(request.limit(), category, request.type());
             }).collect(java.util.stream.Collectors.toSet());
             return envelopes;
         }

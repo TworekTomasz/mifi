@@ -4,7 +4,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.mifi.buget.application.CreateCategoryCommandHandler;
 import pl.mifi.buget.application.GetAllCategoriesQuery;
+import pl.mifi.buget.domain.Category;
 import pl.mifi.cqrs.Mediator;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/budget/categories")
@@ -24,8 +27,8 @@ public class CategoryController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<Boolean> getCategories() {
-        mediator.get(new GetAllCategoriesQuery());
-        return ResponseEntity.ok(true);
+    public ResponseEntity<List<Category>> getCategories() {
+        List<Category> categories = mediator.get(new GetAllCategoriesQuery());
+        return ResponseEntity.ok().body(categories);
     }
 }

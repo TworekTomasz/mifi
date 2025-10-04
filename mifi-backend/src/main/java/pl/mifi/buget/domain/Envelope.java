@@ -19,6 +19,10 @@ public class Envelope extends BaseEntity {
     @Column(name = "spent_amount")
     private BigDecimal spent;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private EnvelopeType type;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "budget_id")
     private Budget budget;

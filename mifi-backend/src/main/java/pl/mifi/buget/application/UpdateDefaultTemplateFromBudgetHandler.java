@@ -45,7 +45,7 @@ public class UpdateDefaultTemplateFromBudgetHandler
         template.getEnvelopes().clear();
         if (in.getEnvelopes() != null) {
             for (var e : in.getEnvelopes()) {
-                template.addEnvelope(e.getCategory(), e.getLimit()); // addEnvelope ustawia spent=0
+                template.addEnvelope(e.getCategory(), e.getLimit(), e.getType()); // addEnvelope ustawia spent=0
             }
         }
 

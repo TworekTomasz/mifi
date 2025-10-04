@@ -59,7 +59,7 @@ public class Budget extends BaseAggregateRoot {
         return budget;
     }
 
-    public void addEnvelope(Category category, BigDecimal limit) {
+    public void addEnvelope(Category category, BigDecimal limit, EnvelopeType type) {
         if (limit.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Limit must be non-negative");
         }
@@ -67,6 +67,7 @@ public class Budget extends BaseAggregateRoot {
                 .budget(this)
                 .category(category)
                 .limit(limit)
+                .type(type)
                 .spent(BigDecimal.ZERO)
                 .build());
     }
@@ -93,7 +94,7 @@ public class Budget extends BaseAggregateRoot {
         this.envelopes.clear();
         if (newEnvelopes != null) {
             for (var s : newEnvelopes) {
-                addEnvelope(s.getCategory(), s.getLimit());
+                addEnvelope(s.getCategory(), s.getLimit(), s.getType());
             }
         }
     }
@@ -109,7 +110,7 @@ public class Budget extends BaseAggregateRoot {
                 .isDefaultTemplate(false)
                 .build();
         for (var e : template.getEnvelopes()) {
-            b.addEnvelope(e.getCategory(), e.getLimit()); // spent=0 zgodnie z Twoją addEnvelope
+            b.addEnvelope(e.getCategory(), e.getLimit(), e.getType()); // spent=0 zgodnie z Twoją addEnvelope
         }
         return b;
     }
