@@ -7,10 +7,7 @@ import pl.mifi.domain.seed_work.BaseAggregateRoot;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 @Entity
 @Getter
@@ -40,6 +37,7 @@ public class Budget extends BaseAggregateRoot {
     @Builder.Default
     private Set<Envelope> envelopes = new HashSet<>();
 
+    private Boolean isDefaultTemplate;
 
     public static Budget create(Type type, String title,
                                 LocalDate requestedStart, LocalDate requestedEnd,
@@ -98,6 +96,22 @@ public class Budget extends BaseAggregateRoot {
                 addEnvelope(s.getCategory(), s.getLimit());
             }
         }
+    }
+
+    public static Budget fromTemplateRecord(Budget template, Type type, LocalDate start, LocalDate end) {
+        var b = Budget.builder()
+                .title(template.getTitle())
+                .type(type)
+                .periodStart(start)
+                .periodEnd(end)
+                .incomes(new ArrayList<>(template.getIncomes()))
+                .fixedExpenses(new ArrayList<>(template.getFixedExpenses()))
+                .isDefaultTemplate(false)
+                .build();
+        for (var e : template.getEnvelopes()) {
+            b.addEnvelope(e.getCategory(), e.getLimit()); // spent=0 zgodnie z Twoją addEnvelope
+        }
+        return b;
     }
 
 }

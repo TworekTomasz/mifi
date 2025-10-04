@@ -26,7 +26,7 @@ public class PkosaTransactionReader implements CsvTransactionReader{
     @Override
     public List<Transaction> read() {
         // 1) Open classpath resource as InputStream
-        try (InputStream in = getClass().getResourceAsStream("/static/reports/pkosa.csv")) {
+        try (InputStream in = getClass().getResourceAsStream("/static/reports/Lista_operacji_20251001_170610.csv")) {
             if (in == null) {
                 throw new IllegalStateException("CSV resource not found: /static/reports/pkosa.csv");
             }

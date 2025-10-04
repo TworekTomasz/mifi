@@ -50,7 +50,7 @@ public class MBankTransactionReader implements CsvTransactionReader {
 
     @Override
     public List<Transaction> read() {
-        try (InputStream in = getClass().getResourceAsStream("/static/reports/mbank.csv")) {
+        try (InputStream in = getClass().getResourceAsStream("/static/reports/82004086_250901_250930.csv")) {
             if (in == null) {
                 throw new IllegalStateException("CSV resource not found: /statements/mbank.csv");
             }

@@ -4,6 +4,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.mifi.buget.application.CreateBudgetCommandHandler;
 import pl.mifi.buget.application.GetByMonthQuery;
+import pl.mifi.buget.application.GetDefaultBudgetQuery;
+import pl.mifi.buget.application.UpdateDefaultTemplateFromBudgetCommand;
 import pl.mifi.buget.domain.Budget;
 import pl.mifi.cqrs.Mediator;
 
@@ -32,5 +34,17 @@ public class BudgetController {
         Budget dto = mediator.get(new GetByMonthQuery(yearMonth));
         return ResponseEntity.ok()
                 .body(dto);
+    }
+
+    @GetMapping("default")
+    public ResponseEntity<Budget> getDefault() {
+        Budget budget = mediator.get(new GetDefaultBudgetQuery());
+        return ResponseEntity.ok().body(budget);
+    }
+
+    @PutMapping("default")
+    public ResponseEntity<?> updateDefault(@RequestBody Budget body) {
+        mediator.send(new UpdateDefaultTemplateFromBudgetCommand(body));
+        return ResponseEntity.ok().build();
     }
 }

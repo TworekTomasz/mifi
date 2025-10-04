@@ -92,6 +92,7 @@ public final class TitleCategoryClassifier {
             r("\\bWYPIEKI\\b", TransactionCategory.DESSERTS),
 
             // --- GROCERIES (supermarkety)
+            r("ERT\\s*WYPIEKI\\s*SP\\.\\s*Z\\s*/\\s*O\\s*BISKUPICE", TransactionCategory.GROCERIES),
             r("\\bLIDL\\b", TransactionCategory.GROCERIES),
             r("BIEDRONKA", TransactionCategory.GROCERIES),
             r("CARREFOUR", TransactionCategory.GROCERIES),
@@ -112,7 +113,6 @@ public final class TitleCategoryClassifier {
             r("\\bAPTEKA\\b", TransactionCategory.PHARMACY),
             r(".*APTEKA.*", TransactionCategory.PHARMACY),
             r("SUPER\\s*PHARM", TransactionCategory.PHARMACY),
-            r("\\bHEBE\\b", TransactionCategory.PHARMACY),
             r("\\bDM\\b", TransactionCategory.PHARMACY),
             r("APTEKA\\s*ONLINE", TransactionCategory.PHARMACY),
             r("\\bOLMED\\b", TransactionCategory.PHARMACY),
@@ -124,6 +124,7 @@ public final class TitleCategoryClassifier {
             r("\\bSEPHORA\\b", TransactionCategory.BEAUTY_PERSONAL_CARE),
             r("\\bDOUGLAS\\b", TransactionCategory.BEAUTY_PERSONAL_CARE),
             r("PEPCO\\s*BEAUTY?", TransactionCategory.BEAUTY_PERSONAL_CARE),
+            r("\\bHEBE\\b", TransactionCategory.BEAUTY_PERSONAL_CARE),
 
             // --- FUEL / STATIONS
             r("\\bORLEN\\b", TransactionCategory.FUEL),
@@ -139,6 +140,7 @@ public final class TitleCategoryClassifier {
             r("\\bSPP\\b", TransactionCategory.PARKING_TOLLS),
             r("SYSTEMY\\s*POB\\s*OPLAT", TransactionCategory.PARKING_TOLLS),
             r("POSIR\\s*MLODZIEZOWY\\s*O", TransactionCategory.PARKING_TOLLS),
+            r("HERON\\s*2\\s*/\\s*CZERWONAK", TransactionCategory.PARKING_TOLLS),
 
             // --- TRANSPORT / RIDEHAIL
             r("\\bBOLT\\b", TransactionCategory.TRANSPORT_RIDEHAIL),

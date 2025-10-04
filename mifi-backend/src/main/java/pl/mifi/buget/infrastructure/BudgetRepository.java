@@ -26,4 +26,6 @@ public interface BudgetRepository extends JpaRepository<Budget, String> {
     default Optional<Budget> findMonthly(YearMonth month) {
         return findByTypeAndPeriod(Type.MONTHLY, month.atDay(1), month.atEndOfMonth());
     }
+
+    Optional<Budget> findByIsDefaultTemplateTrue();
 }
